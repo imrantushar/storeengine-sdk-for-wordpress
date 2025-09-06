@@ -1346,9 +1346,6 @@ final class SE_License_SDK_License {
 	 * @return void
 	 */
 	public function clear_license_check_schedule() {
-		error_log( 'clearing license check schedule' );
-		error_log( wp_doing_cron() ? 'Doing cron' : 'Not doing cron' );
-		error_log( print_r( wp_debug_backtrace_summary( null, 0, true ), true ) );
 		wp_clear_scheduled_hook( $this->schedule_hook );
 	}
 
