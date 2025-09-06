@@ -46,6 +46,16 @@ final class SE_License_SDK_Client {
 	protected $is_free = false;
 
 	/**
+	 * @var ?string
+	 */
+	protected $product_logo = null;
+
+	/**
+	 * @var ?string
+	 */
+	protected $primary_color = null;
+
+	/**
 	 * The Plugin/Theme file path.
 	 * Example ./../wp-content/Plugin/test-slug/test-slug.php.
 	 *
@@ -186,7 +196,7 @@ final class SE_License_SDK_Client {
 		if ( ! file_exists( $package_file ) || ! is_file( $package_file ) ) {
 			$message = sprintf(
 			/* translators: 1. Current Class Name. */
-				esc_html__( 'Invalid Argument. The \'$file\' argument needs to be a valid file path for initializing %s().', 'absolute-addons' ),
+				esc_html__( 'Invalid Argument. The \'$file\' argument needs to be a valid file path for initializing %s().', 'storeengine-sdk' ),
 				__CLASS__
 			);
 			_doing_it_wrong( __METHOD__, $message, '1.0.0' );
@@ -208,6 +218,8 @@ final class SE_License_SDK_Client {
 			'package_type'    => null,
 			'package_version' => null,
 			'allow_local'     => false,
+			'product_logo'    => null,
+			'primary_color'   => '#008DFF',
 		] );
 
 		if ( ! $args['license_server'] ) {
@@ -219,6 +231,8 @@ final class SE_License_SDK_Client {
 		}
 
 		$this->is_free           = $args['is_free'];
+		$this->product_logo      = $args['product_logo'];
+		$this->primary_color     = $args['primary_color'];
 		$this->license_server    = $args['license_server'];
 		$this->product_id        = absint( $args['product_id'] );
 		$this->basename          = $args['basename'];
@@ -278,23 +292,17 @@ final class SE_License_SDK_Client {
 		}
 
 		if ( $client->isPro() ) {
-			$prompt = $args['activation_prompt'] ?? sprintf(
-			/* translators: %s: Plugin Name */
-				__( 'Active %s license to get professional support and automatic update from your WordPress dashboard.', 'absolute-addons' ),
-				'<strong>' . esc_html( $client->getPackageName() ) . '</strong>'
-			);
-
 			$client->license()
-			       ->set_activation_required_message( $prompt )
-			       ->set_header_icon( $args['license_logo'] ?? null );
+			       ->set_header_message( $args['activation_prompt'] ?? null )
+			       ->set_manage_license_url( $args['store_dashboard_url'] ?? null )
+			       ->set_purchase_url( $args['purchase_url'] ?? null )
+			       ->set_header_icon( $args['product_logo'] ?? null );
 
-			if ( ! is_array( $args['menu'] ) ) {
+			if ( ! isset( $args['menu'] ) || ! is_array( $args['menu'] ) ) {
 				$args['menu'] = [];
 			}
 
-			if ( ! empty( $args['menu'] ) ) {
-				$client->license()->set_menu_args( $args['menu'] )->add_settings_page();
-			}
+			$client->license()->set_menu_args( array_filter( $args['menu'] ) )->add_settings_page();
 
 			$client->license()->init();
 
@@ -330,15 +338,23 @@ final class SE_License_SDK_Client {
 		}
 
 		$this->software_data[ $this->package_file_hash ][ $key ] = $value;
-		$this->is_dirty                                          = true;
+		// Flag for update data.
+		$this->is_dirty = true;
 	}
 
 	public function save_software_data() {
-		if ( ! $this->is_dirty || ! is_array( $this->software_data ) ) {
+		if ( ! $this->is_dirty ) {
 			return;
 		}
 
 		$this->is_dirty = false;
+
+		if ( ! is_array( $this->software_data ) ) {
+			$this->software_data = [];
+		}
+
+		// Force save.
+		$this->software_data['last-updated'] = current_time( 'mysql', 1 );
 
 		update_option( $this->software_data_option, $this->software_data );
 	}
@@ -581,16 +597,15 @@ final class SE_License_SDK_Client {
 	}
 
 	public function get_server_ip_address(): string {
-		$response = wp_safe_remote_get( 'https://icanhazip.com/' );
-		if ( is_wp_error( $response ) ) {
-			return '';
-		}
-		$ip = trim( wp_remote_retrieve_body( $response ) );
-		if ( ! filter_var( $ip, FILTER_VALIDATE_IP ) ) {
-			return '';
+		$response = wp_remote_get( 'https://icanhazip.com/' );
+		if ( ! is_wp_error( $response ) ) {
+			$ip = trim( wp_remote_retrieve_body( $response ) );
+			if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+				return $ip;
+			}
 		}
 
-		return $ip;
+		return filter_var( wp_unslash( $_SERVER['SERVER_ADDR'] ), FILTER_VALIDATE_IP );
 	}
 
 	/**
@@ -734,6 +749,11 @@ final class SE_License_SDK_Client {
 			'device_id'   => $this->get_device_id(),
 			'locale'      => get_locale(),
 		] );
+
+		if ( ! $this->is_free && $this->license() && $this->license()->get_key() ) {
+			$body['license'] = $this->license()->get_key();
+		}
+
 		$ssl_verify   = apply_filters( 'https_local_ssl_verify', true ); // phpcs:ignore WordPressVIPMinimum.Performance.RemoteRequestTimeout.timeout_timeout
 		$request_args = [
 			'method'      => strtoupper( $args['method'] ),
@@ -759,6 +779,10 @@ final class SE_License_SDK_Client {
 			} else {
 				$response = wp_safe_remote_request( $url, $request_args );
 			}
+		}
+
+		if ( 'opt-in' === $args['route'] ) {
+			//dd( $response, $url, $args, $body, add_query_arg( $body, $url ) );
 		}
 
 		remove_filter( 'http_request_reject_unsafe_urls', '__return_false' );
@@ -914,6 +938,19 @@ final class SE_License_SDK_Client {
 	}
 
 	/**
+	 * Get Plugin/Theme Slug.
+	 *
+	 * @return ?string
+	 */
+	public function getProductLogo() {
+		return $this->product_logo;
+	}
+
+	public function printPrimaryColor() {
+		echo $this->primary_color;
+	}
+
+	/**
 	 * Get Package Hash
 	 *
 	 * @return string
@@ -930,7 +967,7 @@ final class SE_License_SDK_Client {
 	 * @return string returns prefixed hook-name (`se_srv_sdk_(theme|plugin)_*hash*_*(theme|plugin)-slug*_*hook-name*`)
 	 */
 	public function getHookName( string $hook ): string {
-		return 'se_srv_sdk' . $this->getType() . '_' . $this->getPackageHash() . '_' . $this->getSlug() . '_' . ltrim( rtrim( $hook, '_-' ), '_-' );
+		return 'se_srv_sdk_' . $this->getType() . '_' . $this->getPackageHash() . '_' . $this->getSlug() . '_' . ltrim( rtrim( $hook, '_-' ), '_-' );
 	}
 
 	public function do_action( $hook_name, ...$arg ) {
@@ -985,6 +1022,14 @@ final class SE_License_SDK_Client {
 	 */
 	public function getType(): string {
 		return $this->type;
+	}
+
+	public function isPlugin(): bool {
+		return 'plugin' === $this->type;
+	}
+
+	public function isTheme(): bool {
+		return 'theme' === $this->type;
 	}
 
 	/**

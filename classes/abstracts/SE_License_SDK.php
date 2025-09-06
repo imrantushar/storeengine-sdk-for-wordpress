@@ -8,13 +8,13 @@
 abstract class SE_License_SDK {
 
 	/**
-	 * Plugin file path.
+	 * SDK file path.
 	 *
 	 * @var string
 	 */
-	private static $plugin_file = '';
+	private static $sdk_init_file = '';
 
-	private static $sdk_version = '';
+	private static $sdk_version = '1.0.0';
 
 	/**
 	 * Data store is initialized.
@@ -35,7 +35,7 @@ abstract class SE_License_SDK {
 	 * @return string
 	 */
 	public static function sdk_path( ?string $path ): string {
-		$base = dirname( self::$plugin_file );
+		$base = dirname( self::$sdk_init_file );
 		if ( $path ) {
 			return trailingslashit( $base ) . $path;
 		} else {
@@ -53,8 +53,8 @@ abstract class SE_License_SDK {
 	 * @return string
 	 */
 	public static function sdk_url( string $path ): string {
-		if ( str_starts_with( self::$plugin_file, wp_normalize_path( WPMU_PLUGIN_DIR ) ) || str_starts_with( self::$plugin_file, wp_normalize_path( WP_PLUGIN_DIR ) ) ) {
-			return plugins_url( $path, self::$plugin_file );
+		if ( str_starts_with( self::$sdk_init_file, wp_normalize_path( WPMU_PLUGIN_DIR ) ) || str_starts_with( self::$sdk_init_file, wp_normalize_path( WP_PLUGIN_DIR ) ) ) {
+			return plugins_url( $path, self::$sdk_init_file );
 		}
 
 		return get_theme_file_uri( $path );
@@ -108,12 +108,12 @@ abstract class SE_License_SDK {
 	 *
 	 * @static
 	 *
-	 * @param string $plugin_file Plugin file path.
+	 * @param string $sdk_init_file Plugin file path.
 	 */
-	public static function init( string $plugin_file ) {
-		self::$plugin_file = $plugin_file;
+	public static function init( string $sdk_init_file ) {
+		self::$sdk_init_file = $sdk_init_file;
 
-		spl_autoload_register( array( __CLASS__, 'autoload' ) );
+		spl_autoload_register( [ __CLASS__, 'autoload' ] );
 
 		/**
 		 * Fires in the early stages of Action Scheduler init hook.

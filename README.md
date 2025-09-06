@@ -77,22 +77,20 @@ This function should be called as early as possible within the WordPress load or
 ```php
 add_action( 'plugins_loaded', function () {
 	se_license_init( [
-		'package_file'    => __FILE__,
-		'package_name'    => __( 'Your Amazing Plugin', 'textdomain'),
-		'product_id'      => 27870,
-		'is_free'         => false,
-		'slug'            => 'your-amazing-plugin',
-		'basename'        => plugin_basename( __FILE__ ),
-		'package_type'    => 'plugin',
-		'package_version' => '1.0.0',
-		'license_server'  => 'https://your-website.com',
-		'license_logo'    => plugins_url( 'assets/images/logo.svg', __FILE__ ),
-		'menu'            => [
-			'menu_title' => __( 'Manage License', 'textdomain' ),
-		],
-		'terms_url'          => 'https://your-website.com/terms-and-conditions/',
-		'privacy_policy_url' => 'https://your-website.com/privacy-policy/',
-		'ticket_recipient'   => 'support@your-website.com',
+		'package_file'        => __FILE__,
+		'package_name'        => __( 'Your Amazing Plugin', 'textdomain'),
+		'product_id'          => 27870,
+		'is_free'             => false,
+		'slug'                => 'your-amazing-plugin',
+		'basename'            => plugin_basename( __FILE__ ),
+		'package_type'        => 'plugin',
+		'package_version'     => '1.0.0',
+		'license_server'      => 'https://your-website.com',
+		'product_logo'        => plugins_url( 'assets/images/logo.svg', __FILE__ ),
+		'store_dashboard_url' => 'https://your-website.com/store-dashboard/license-keys/',
+		'terms_url'           => 'https://your-website.com/terms-and-conditions/',
+		'privacy_policy_url'  => 'https://your-website.com/privacy-policy/',
+		'ticket_recipient'    => 'support@your-website.com',
 	] );
 } );
 ```

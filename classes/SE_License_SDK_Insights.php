@@ -156,11 +156,6 @@ final class SE_License_SDK_Insights {
 	 */
 	protected function init_common() {
 
-		if ( $this->show_notice ) {
-			// Tracking notice.
-			add_action( 'admin_notices', [ $this, 'admin_notice' ] );
-		}
-
 		add_action( 'admin_init', [ $this, 'handle_optIn_optOut' ] );
 		add_action( 'removable_query_args', [ $this, 'add_removable_query_args' ] );
 
@@ -183,6 +178,12 @@ final class SE_License_SDK_Insights {
 
 	public function set_support_url( string $supportURL ): SE_License_SDK_Insights {
 		$this->supportURL = $supportURL;
+
+		return $this;
+	}
+
+	public function set_purchase_url( string $purchase_url ): SE_License_SDK_Insights {
+		$this->purchase_url = $purchase_url;
 
 		return $this;
 	}
@@ -270,19 +271,23 @@ final class SE_License_SDK_Insights {
 		$all_plugins = $this->get_plugins_data();
 		$theme       = wp_get_theme();
 		$theme_data  = [
-			'slug'     => $theme->get_stylesheet(),
-			'name'     => $theme->get( 'Name' ),
-			'version'  => $theme->get( 'Version' ),
-			'author'   => $theme->get( 'Author' ),
-			'is_child' => false,
+			'slug'       => $theme->get_stylesheet(),
+			'name'       => $theme->get( 'Name' ),
+			'version'    => $theme->get( 'Version' ),
+			'author'     => $theme->get( 'Author' ),
+			'author_url' => $theme->get( 'AuthorURI' ),
+			'theme_url'  => $theme->get( 'ThemeURI' ),
+			'is_child'   => false,
 		];
 
 		if ( $theme->parent() ) {
-			$theme_data['is_child']       = true;
-			$theme_data['parent_slug']    = $theme->parent()->get_stylesheet();
-			$theme_data['parent_name']    = $theme->parent()->get( 'Name' );
-			$theme_data['parent_version'] = $theme->parent()->get( 'Version' );
-			$theme_data['parent_author']  = $theme->parent()->get( 'Author' );
+			$theme_data['is_child']          = true;
+			$theme_data['parent_slug']       = $theme->parent()->get_stylesheet();
+			$theme_data['parent_name']       = $theme->parent()->get( 'Name' );
+			$theme_data['parent_version']    = $theme->parent()->get( 'Version' );
+			$theme_data['parent_author']     = $theme->parent()->get( 'Author' );
+			$theme_data['parent_author_url'] = $theme->parent()->get( 'AuthorURI' );
+			$theme_data['parent_theme_url']  = $theme->parent()->get( 'ThemeURI' );
 		}
 
 		$data = [
@@ -300,8 +305,8 @@ final class SE_License_SDK_Insights {
 			'os_version'      => $this->get_os_version(),
 			'ip_address'      => $this->client->get_server_ip_address(),
 			'usage_log'       => [
-				'admin_email'          => $admin_emails,
 				'admin_name'           => $admin_name,
+				'admin_email'          => $admin_emails,
 				'os_info'              => php_uname(),
 				'url'                  => esc_url( home_url() ),
 				'site'                 => $this->__get_site_name(),
@@ -314,11 +319,11 @@ final class SE_License_SDK_Insights {
 				'php_execution_time'   => @ini_get( 'max_execution_time' ), // phpcs:ignore
 				'php_max_upload_size'  => size_format( wp_max_upload_size() ),
 				'php_default_timezone' => date_default_timezone_get(),
-				'php_soap'             => class_exists( 'SoapClient' ),
-				'php_fsockopen'        => function_exists( 'fsockopen' ),
-				'php_curl'             => function_exists( 'curl_init' ),
-				'php_ftp'              => function_exists( 'ftp_connect' ),
-				'php_sftp'             => function_exists( 'ssh2_connect' ),
+				'ext_php_soap'         => class_exists( 'SoapClient' ),
+				'ext_php_fsockopen'    => function_exists( 'fsockopen' ),
+				'ext_php_curl'         => function_exists( 'curl_init' ),
+				'ext_php_ftp'          => function_exists( 'ftp_connect' ),
+				'ext_php_sftp'         => function_exists( 'ssh2_connect' ),
 			],
 		];
 
@@ -361,11 +366,11 @@ final class SE_License_SDK_Insights {
 	 */
 	protected function get_data_collection_list(): array {
 		$data = array_merge( [
-			'server_env'  => __( 'Server environment details (MySQL version, MySQL version, Server software & version, etc.).', 'absolute-addons' ),
-			'wp_env'      => __( 'WordPress installation details (version, debug mode, max upload size).', 'absolute-addons' ),
-			'wp_settings' => __( 'WordPress settings (site language, active and inactive plugins & themes).', 'absolute-addons' ),
-			'site_meta'   => __( 'Site Name & URL.', 'absolute-addons' ),
-			'admin_meta'  => __( 'Admin Name & Email.', 'absolute-addons' ),
+			'server_env'  => __( 'Server environment details (MySQL version, MySQL version, Server software & version, etc.).', 'storeengine-sdk' ),
+			'wp_env'      => __( 'WordPress installation details (version, debug mode, max upload size).', 'storeengine-sdk' ),
+			'wp_settings' => __( 'WordPress settings (site language, active and inactive plugins & themes).', 'storeengine-sdk' ),
+			'site_meta'   => __( 'Site Name & URL.', 'storeengine-sdk' ),
+			'admin_meta'  => __( 'Admin Name & Email.', 'storeengine-sdk' ),
 		], $this->data_collection_list );
 
 		return array_unique( array_filter( $data ) );
@@ -407,13 +412,8 @@ final class SE_License_SDK_Insights {
 	 *
 	 * @return boolean
 	 */
-	private function __notice_dismissed() {
-		$hide_notice = $this->client->get_option( 'tracking_notice', 'no' );
-		if ( 'hide' == $hide_notice ) {
-			return true;
-		}
-
-		return false;
+	private function __notice_dismissed(): bool {
+		return 'hide' === $this->client->get_option( 'tracking_notice', 'show' );
 	}
 
 	/**
@@ -471,7 +471,7 @@ final class SE_License_SDK_Insights {
 			$what_we_collect   = sprintf(
 				'<a class="%s" href="#">%s</a>',
 				esc_attr( $trigger ),
-				esc_html__( 'What we collect?', 'absolute-addons' )
+				esc_html__( 'What we collect?', 'storeengine-sdk' )
 			);
 
 			$terms_policy_text = '';
@@ -480,7 +480,7 @@ final class SE_License_SDK_Insights {
 				$privacy_policy = sprintf(
 					'<a href="%s" target="_blank" rel="noopener">%s</a>',
 					esc_url( $this->privacy_policy_url ),
-					esc_html__( 'Privacy Policy', 'absolute-addons' )
+					esc_html__( 'Privacy Policy', 'storeengine-sdk' )
 				);
 			}
 
@@ -488,7 +488,7 @@ final class SE_License_SDK_Insights {
 				$terms = sprintf(
 					'<a href="%1$s" target="_blank" rel="noopener">%2$s</a>',
 					esc_url( $this->terms_url ),
-					esc_html__( 'Terms of Services', 'absolute-addons' )
+					esc_html__( 'Terms of Services', 'storeengine-sdk' )
 				);
 			}
 
@@ -496,58 +496,31 @@ final class SE_License_SDK_Insights {
 				if ( $terms && $privacy_policy ) {
 					$terms_policy_text = sprintf(
 						/* translators: 1: Privacy Policy Link, 2: Terms Links */
-						__( 'Please read our %1$s and %2$s', 'absolute-addons' ),
+						__( 'Please read our %1$s and %2$s', 'storeengine-sdk' ),
 						$privacy_policy,
 						$terms
 					);
 				} else {
 					/* translators: 1: Privacy Policy or Terms Link */
-					$terms_policy_text = sprintf( __( 'Please read our %1$s', 'absolute-addons' ), $privacy_policy || $terms );
+					$terms_policy_text = sprintf( __( 'Please read our %1$s', 'storeengine-sdk' ), $privacy_policy || $terms );
 				}
 			}
 
 			if ( empty( $this->notice ) || ! str_contains( $this->notice, '%1$s' ) || ! str_contains( $this->notice, '%2$s' ) ) {
 				/* translators: 1: plugin name. */
-				$this->notice = __( '<h3 style="margin:0 0 8px 0">💌 Want to help make <strong>%1$s</strong> even more awesome?</h3>', 'absolute-addons' );
+				$this->notice = __( '<span class="se-sdk-insights-notice--title">Help Us Improve & Get Exclusive Perks!</span>', 'storeengine-sdk' );
 				/* translators: 1: plugin name, 2: what we collect button. */
-				$this->notice .= __( '<p style="margin:0">Allow <strong>%1$s</strong> to collect non-sensitive diagnostic data and usage information. No sensitive data is tracked. <small>%2$s</small></p>', 'absolute-addons' );
+				//. What you’ll get if you opt in?
+				$this->notice .= __( '<p class="se-sdk-insights-notice--des">We’d love to stay in touch and share useful updates, tips, and special offers to help you get the most from %1$s. Your privacy is our priority. No spam — ever. <small>%2$s</small></p>', 'storeengine-sdk' );
 			}
 
 			$this->notice = sprintf(
 				$this->notice,
-				'<strong>' . esc_html( $this->client->getPackageName() ) . '</strong>',
+				'<strong class="highlight">' . esc_html( $this->client->getPackageName() ) . '</strong>',
 				$what_we_collect
 			);
 
-			?>
-			<div class="se-sdk-insights-notice updated" style="padding:24px;border-left-color:#008DFF">
-				<div class="se-sdk-insights-notice--message" style="margin-bottom:15px">
-					<?php echo wp_kses_post( wpautop( $this->notice ) ); ?>
-				</div>
-				<ul class="description hide-if-js" style="margin-bottom:15px">
-					<?php foreach ( $what_tracked as $key => $item ) { ?>
-						<li class="trac-<?php echo esc_attr( $key ); ?>">✅ <?php echo esc_html( $item ); ?></li>
-					<?php } ?>
-				</ul>
-				<div class="se-sdk-insights--opt-in-submit" style="display:flex;align-items:center;margin:0;padding:0">
-					<div class="buttons" style="margin-right:auto;display:flex;gap:12px">
-						<a href="<?php echo esc_url( $this->get_opt_out_url() ); ?>" class="button button-secondary" style="border-color: #f02e5e;background: transparent;color: #f02e5e;"><?php esc_html_e( 'No thanks', 'absolute-addons' ); ?></a>
-						<a href="<?php echo esc_url( $this->get_opt_in_url() ); ?>" class="button button-primary" style="border-color: #6AD39C;background: #00bb30;"><?php esc_html_e( 'Allow', 'absolute-addons' ); ?></a>
-					</div>
-					<?php if ( $terms_policy_text ) { ?>
-						<p class="terms" style="font-size:0.85em"><?php echo wp_kses_post( $terms_policy_text ); ?></p>
-					<?php } ?>
-				</div>
-				<script>
-					( function( $ ) {
-						$( '.<?php echo esc_attr( $trigger ); ?>' ).on( 'click', function( e ) {
-							e.preventDefault();
-							$( this ).closest( '.se-sdk-insights-notice' ).find( '.description' ).slideToggle();
-						} );
-					} )( jQuery );
-				</script>
-			</div>
-			<?php
+			include_once __DIR__ . '/../views/insights-opt-in-notice.php';
 		}
 	}
 
@@ -556,12 +529,10 @@ final class SE_License_SDK_Insights {
 	 * @return string
 	 */
 	public function get_opt_in_url(): string {
-		return add_query_arg(
-			[
-				'optAct'   => $this->client->getHookName( 'tracker_optIn' ),
-				'_wpnonce' => wp_create_nonce( $this->client->getHookName( 'insight_action' ) ),
-			]
-		);
+		return add_query_arg( [
+			'optAct'   => $this->client->getHookName( 'tracker_optIn' ),
+			'_wpnonce' => wp_create_nonce( $this->client->getHookName( 'insight_action' ) ),
+		] );
 	}
 
 	/**
@@ -569,12 +540,10 @@ final class SE_License_SDK_Insights {
 	 * @return string
 	 */
 	public function get_opt_out_url(): string {
-		return add_query_arg(
-			[
-				'optAct'   => $this->client->getHookName( 'tracker_optOut' ),
-				'_wpnonce' => wp_create_nonce( $this->client->getHookName( 'insight_action' ) ),
-			]
-		);
+		return add_query_arg( [
+			'optAct'   => $this->client->getHookName( 'tracker_optOut' ),
+			'_wpnonce' => wp_create_nonce( $this->client->getHookName( 'insight_action' ) ),
+		] );
 	}
 
 	/**
@@ -583,16 +552,21 @@ final class SE_License_SDK_Insights {
 	 * @return void
 	 */
 	public function handle_optIn_optOut() {
+		if ( $this->show_notice ) {
+			// Tracking notice.
+			add_action( 'admin_notices', [ $this, 'admin_notice' ] );
+		}
+
 		if ( isset( $_REQUEST['_wpnonce'], $_REQUEST['optAct'] ) && $_REQUEST['optAct'] ) {
 			check_admin_referer( $this->client->getHookName( 'insight_action' ) );
 			if ( $this->client->getHookName( 'tracker_optOut' ) === $_REQUEST['optAct'] ) {
-				$this->optOut();
+				$this->optOut( false );
 			} else {
 				$this->optIn();
 			}
 
 
-			wp_safe_redirect( remove_query_arg( 'optAct', '_wpnonce' ) );
+			wp_safe_redirect( remove_query_arg( [ 'optAct', '_wpnonce' ] ) );
 			exit;
 		}
 	}
@@ -621,6 +595,7 @@ final class SE_License_SDK_Insights {
 		$this->client->set_option( 'tracking_notice', 'hide' );
 		$this->__clear_schedule_event();
 		$this->__schedule_event();
+		$this->client->request( [ 'body' => [ 'opt_in' => true ], 'route' => 'opt-in' ] );
 		$this->send_tracking_data( $override_last_send );
 	}
 
@@ -629,9 +604,11 @@ final class SE_License_SDK_Insights {
 	 *
 	 * @return void
 	 */
-	public function optOut() {
+	public function optOut( $hide_notice = true ) {
+		$this->send_tracking_data();
 		$this->client->set_option( 'allow_tracking', 'no' );
-		$this->client->set_option( 'tracking_notice', 'hide' );
+		$this->client->set_option( 'tracking_notice', $hide_notice ? 'hide' : 'show' );
+		$this->client->request( [ 'body' => [ 'opt_in' => false ], 'route' => 'opt-in' ] );
 		$this->__clear_schedule_event();
 	}
 
@@ -822,7 +799,7 @@ final class SE_License_SDK_Insights {
 	public function add_weekly_schedule( $schedules ) {
 		$schedules['weekly'] = [
 			'interval' => DAY_IN_SECONDS * 7,
-			'display'  => __( 'Once Weekly', 'absolute-addons' ),
+			'display'  => __( 'Once Weekly', 'storeengine-sdk' ),
 		];
 
 		return $schedules;
@@ -932,51 +909,51 @@ final class SE_License_SDK_Insights {
 		$reasons = [
 			[
 				'id'          => 'how-to-use',
-				'text'        => esc_html__( "I couldn't understand how to make it work.", 'absolute-addons' ),
+				'text'        => esc_html__( "I couldn't understand how to make it work.", 'storeengine-sdk' ),
 				'type'        => 'textarea',
-				'placeholder' => esc_html__( 'Would you like us to assist you?', 'absolute-addons' ),
+				'placeholder' => esc_html__( 'Would you like us to assist you?', 'storeengine-sdk' ),
 			],
 			[
 				'id'          => 'found-better',
-				'text'        => esc_html__( 'I found a better product.', 'absolute-addons' ),
+				'text'        => esc_html__( 'I found a better product.', 'storeengine-sdk' ),
 				'type'        => 'text',
-				'placeholder' => esc_html__( 'Which Plugin!?', 'absolute-addons' ),
+				'placeholder' => esc_html__( 'Which Plugin!?', 'storeengine-sdk' ),
 			],
 			[
 				'id'          => 'feature-needed',
-				'text'        => esc_html__( "The plugin is great, but I need specific feature that you don't support.", 'absolute-addons' ),
+				'text'        => esc_html__( "The plugin is great, but I need specific feature that you don't support.", 'storeengine-sdk' ),
 				'type'        => 'textarea',
-				'placeholder' => esc_html__( 'Can you tell us more about feature that you need?', 'absolute-addons' ),
+				'placeholder' => esc_html__( 'Can you tell us more about feature that you need?', 'storeengine-sdk' ),
 			],
 			[
 				'id'          => 'not-working',
-				'text'        => esc_html__( 'The plugin is not working.', 'absolute-addons' ),
+				'text'        => esc_html__( 'The plugin is not working.', 'storeengine-sdk' ),
 				'type'        => 'textarea',
-				'placeholder' => esc_html__( 'Could you tell us a bit more whats not working?', 'absolute-addons' ),
+				'placeholder' => esc_html__( 'Could you tell us a bit more whats not working?', 'storeengine-sdk' ),
 			],
 			[
 				'id'          => 'looking-for-other',
-				'text'        => esc_html__( "It's not what I was looking for.", 'absolute-addons' ),
+				'text'        => esc_html__( "It's not what I was looking for.", 'storeengine-sdk' ),
 				'type'        => 'textarea',
-				'placeholder' => esc_html__( 'Could you please let us know more about the features you are looking for?', 'absolute-addons' ),
+				'placeholder' => esc_html__( 'Could you please let us know more about the features you are looking for?', 'storeengine-sdk' ),
 			],
 			[
 				'id'          => 'not-working-as-expected',
-				'text'        => esc_html__( "The plugin didn't work as expected.", 'absolute-addons' ),
+				'text'        => esc_html__( "The plugin didn't work as expected.", 'storeengine-sdk' ),
 				'type'        => 'textarea',
-				'placeholder' => esc_html__( 'Please let us know your needs.', 'absolute-addons' ),
+				'placeholder' => esc_html__( 'Please let us know your needs.', 'storeengine-sdk' ),
 			],
 			[
 				'id'          => 'debugging',
-				'text'        => esc_html__( 'Temporary deactivation for debugging.', 'absolute-addons' ),
+				'text'        => esc_html__( 'Temporary deactivation for debugging.', 'storeengine-sdk' ),
 				'type'        => '',
 				'placeholder' => '',
 			],
 			[
 				'id'          => 'other',
-				'text'        => esc_html__( 'Other', 'absolute-addons' ),
+				'text'        => esc_html__( 'Other', 'storeengine-sdk' ),
 				'type'        => 'textarea',
-				'placeholder' => esc_html__( 'Could you tell us a bit more?', 'absolute-addons' ),
+				'placeholder' => esc_html__( 'Could you tell us a bit more?', 'storeengine-sdk' ),
 			],
 		];
 
@@ -1000,7 +977,7 @@ final class SE_License_SDK_Insights {
 		check_ajax_referer( $this->client->getHookName( 'insight_action' ) );
 
 		if ( ! isset( $_POST['reason_id'] ) ) {
-			wp_send_json_error( esc_html__( 'Invalid Request', 'absolute-addons' ) );
+			wp_send_json_error( esc_html__( 'Invalid Request', 'storeengine-sdk' ) );
 		}
 
 		$reason  = sanitize_text_field( $_REQUEST['reason_id'] );
@@ -1054,8 +1031,8 @@ final class SE_License_SDK_Insights {
 				<p style="font-size: 12px;color: #009688"><?php
 					printf(
 					// translators: %1$s. StoreEngine Site Link. %2$s. SDK version.
-						esc_html__( 'Message Processed via %1$s WordPress License SDK (v.%2$s)', 'absolute-addons' ),
-						'<a href="http://storeengine.pro/" target="_blank">' . esc_html__( 'StoreEngine', 'absolute-addons' ) . '</a>',
+						esc_html__( 'Message Processed via %1$s WordPress License SDK (v.%2$s)', 'storeengine-sdk' ),
+						'<a href="http://storeengine.pro/" target="_blank">' . esc_html__( 'StoreEngine', 'storeengine-sdk' ) . '</a>',
 						esc_html( $this->client->getVersion() )
 					);
 				?></p>
@@ -1076,11 +1053,11 @@ final class SE_License_SDK_Insights {
 	public function support_ticket_submission() {
 		check_ajax_referer( $this->client->getHookName( 'insight_action' ) );
 		if ( empty( $this->ticketTemplate ) || empty( $this->ticketRecipient ) ) {
-			wp_send_json_error( __( 'Something Went Wrong.<br>Please try again after sometime.', 'absolute-addons' ) );
+			wp_send_json_error( __( 'Something Went Wrong.<br>Please try again after sometime.', 'storeengine-sdk' ) );
 		}
 
 		if ( ! is_file( $this->ticketTemplate ) ) {
-			wp_send_json_error( __( 'Unable to locate support ticket email template file', 'absolute-addons') );
+			wp_send_json_error( __( 'Unable to locate support ticket email template file', 'storeengine-sdk') );
 		}
 
 		if ( ! empty( $_REQUEST['name'] ) && ! empty( $_REQUEST['email'] ) && sanitize_email( $_REQUEST['email'] ) && is_email( $_REQUEST['email'] ) && ! empty( $_REQUEST['subject'] ) && ! empty( $_REQUEST['message'] ) ) {
@@ -1139,7 +1116,7 @@ final class SE_License_SDK_Insights {
 				if ( $this->supportResponse ) {
 					$message = is_callable( $this->supportResponse ) ? call_user_func_array( $this->supportResponse , [] ) : $this->supportResponse;
 				} else {
-					$message = '<h3>' . __( 'Thank you -- Support Ticket Submitted.', 'absolute-addons' ) . '</h3>';
+					$message = '<h3>' . __( 'Thank you -- Support Ticket Submitted.', 'storeengine-sdk' ) . '</h3>';
 				}
 
 				wp_send_json_success( wp_kses_post( $message ) );
@@ -1147,13 +1124,13 @@ final class SE_License_SDK_Insights {
 				if ( $this->supportErrorResponse ) {
 					$message = is_callable( $this->supportErrorResponse ) ? call_user_func_array( $this->supportErrorResponse , [] ) : $this->supportErrorResponse;
 				} else {
-					$message = __( 'Something Went Wrong. Please Try Again After Sometime.', 'absolute-addons' );
+					$message = __( 'Something Went Wrong. Please Try Again After Sometime.', 'storeengine-sdk' );
 				}
 
 				wp_send_json_error( wp_kses_post( $message ) );
 			}
 		} else {
-			wp_send_json_error( esc_html__( 'Missing Required Fields.', 'absolute-addons' ) );
+			wp_send_json_error( esc_html__( 'Missing Required Fields.', 'storeengine-sdk' ) );
 		}
 	}
 
@@ -1178,7 +1155,7 @@ final class SE_License_SDK_Insights {
 		<div class="se-sdk-deactivation-modal"
 			 id="<?php echo esc_attr( $this->client->getSlug() ); ?>-se-sdk-deactivation-modal"
 			 aria-label="<?php /* translators: 1: Plugin Name */
-		     printf( esc_attr__( '&ldquo;%s&rdquo; Uninstall Confirmation', 'absolute-addons' ), esc_attr( $this->client->getPackageName() ) ); ?>"
+		     printf( esc_attr__( '&ldquo;%s&rdquo; Uninstall Confirmation', 'storeengine-sdk' ), esc_attr( $this->client->getPackageName() ) ); ?>"
 			 role="dialog" aria-modal="true">
 			<?php
 			if ( $showSupportTicket ) {
@@ -1190,6 +1167,10 @@ final class SE_License_SDK_Insights {
 		</div>
 		<!--suppress CssUnusedSymbol, CssInvalidPseudoSelector, CssFloatPxLength -->
 		<style>
+            body.se-sdk-deactivation-modal-open {
+                overflow: hidden !important;
+            }
+
             .se-sdk-deactivation-modal, .se-sdk-deactivation-modal * {
                 box-sizing: border-box;
             }
@@ -1215,16 +1196,18 @@ final class SE_License_SDK_Insights {
 
             .se-sdk-deactivation-modal--wrap {
                 width: 475px;
-                margin: 10% auto auto auto;
+                margin: auto;
                 background: #fff;
                 position: absolute;
                 display: block;
                 top: 0;
                 left: 0;
-                right: 0; /*bottom: 0;*/
+                right: 0;
+				bottom: 0;
                 z-index: 99;
                 border-radius: 3px;
                 box-shadow: 0 15px 15px rgba(0, 0, 0, 0.2);
+                height: max-content;
             }
 
             .se-sdk-deactivation-modal--wrap.support {
@@ -1265,6 +1248,16 @@ final class SE_License_SDK_Insights {
                 background: #FFF;
             }
 
+            @media (max-width: 768px) {
+                .se-sdk-deactivation-modal--wrap {
+                    width: calc( 100% - 30px ) !important;
+                }
+
+                .se-sdk-deactivation-modal--body {
+                    padding: 16px !important;
+                }
+            }
+
             .se-sdk-deactivation-modal .reason .response .wrapper {
                 width: calc(100% - 80px);
                 height: calc(100% - 80px);
@@ -1279,7 +1272,7 @@ final class SE_License_SDK_Insights {
 
             .se-sdk-deactivation-modal--header {
                 border-bottom: 1px solid #eee;
-                padding: 8px 40px 8px 20px;
+                padding: 12px 24px;
                 position: relative;
                 display: block;
                 width: 100%;
@@ -1287,8 +1280,16 @@ final class SE_License_SDK_Insights {
             }
 
             .se-sdk-deactivation-modal--header h3 {
-                line-height: 150%;
                 margin: 0;
+                color: #141A24;
+                font-size: 18px;
+                font-style: normal;
+                font-weight: 600;
+                line-height: 28px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex: 1 0 0;
             }
 
             .se-sdk-deactivation-modal--close {
@@ -1316,12 +1317,34 @@ final class SE_License_SDK_Insights {
             }
 
             .se-sdk-deactivation-modal--body {
-                padding: 5px 12px 20px 18px;
+                padding: 32px;
                 position: relative;
                 display: block;
                 width: 100%;
                 float: left;
                 box-sizing: border-box;
+                max-height: 58dvh;
+                overflow: auto;
+            }
+
+            .feedback-message {
+                color: #141A24;
+                font-size: 16px;
+                font-style: normal;
+                font-weight: 500;
+                line-height: 24px;
+                margin-bottom: 24px;
+            }
+
+            .reasons {
+                margin: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 10px
+            }
+
+            dd, li {
+                margin: 0;
             }
 
             .se-sdk-deactivation-modal .reason-input {
@@ -1330,13 +1353,23 @@ final class SE_License_SDK_Insights {
             }
 
             .se-sdk-deactivation-modal--footer {
-                border-top: 1px solid #eee;
+                display: flex;
+                justify-content: space-between;
                 padding: 12px 20px;
-                text-align: right;
                 position: relative;
-                display: block;
                 width: 100%;
-                float: left;
+            }
+
+            .se-sdk-deactivation-modal--open-ticket {
+                margin-bottom: 24px;
+            }
+
+            .se-sdk-deactivation-modal--open-ticket span {
+                color: #738496;
+                font-size: 16px;
+                font-style: normal;
+                font-weight: 500;
+                line-height: 24px;
             }
 
             .se-sdk-deactivation-modal--footer a, .se-sdk-deactivation-modal--footer button {
@@ -1420,7 +1453,7 @@ final class SE_License_SDK_Insights {
             }
 
             .se-sdk-deactivation-modal .mui label.focused {
-                color: #645ff5;
+                color: <?php $this->client->printPrimaryColor(); ?>;
             }
 
             p:not(.helper-text).mui-error, div:not(.helper-text).mui-error,
@@ -1471,7 +1504,7 @@ final class SE_License_SDK_Insights {
                 position: absolute;
                 transform: scaleX(0);
                 transition: transform 200ms cubic-bezier(0.0, 0, 0.2, 1) 0ms;
-                border-bottom: 2px solid #645ff5;
+                border-bottom: 2px solid <?php $this->client->printPrimaryColor(); ?>;
                 pointer-events: none;
             }
 
@@ -1566,8 +1599,8 @@ final class SE_License_SDK_Insights {
 
             .se-sdk-deactivation-modal .reason-input input[type="text"]:focus,
             .se-sdk-deactivation-modal .reason-input textarea:focus {
-                border-color: #645ff5;
-                box-shadow: 0 0 0 1px #645ff5;
+                border-color: <?php $this->client->printPrimaryColor(); ?>;
+                box-shadow: 0 0 0 1px <?php $this->client->printPrimaryColor(); ?>;
             }
 
             .se-sdk-deactivation-modal .mui .helper-text {
@@ -1593,34 +1626,66 @@ final class SE_License_SDK_Insights {
                 right: 0;
             }
 
+            .se-sdk-deactivation-modal--open-ticket button,
+            .se-sdk-deactivation-modal .button {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 2px 14px;
+                border-radius: 4px;
+                background: <?php $this->client->printPrimaryColor(); ?>;
+                color: #FFFFFF;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+				text-decoration: none;
+            }
+
+            .se-sdk-deactivation-modal--open-ticket button {
+                color: <?php $this->client->printPrimaryColor(); ?>;
+                gap: 8px;
+                border-radius: 9999px;
+                border: 1px solid <?php $this->client->printPrimaryColor(); ?>;
+                background: #FFFFFF;
+                margin-top: 12px;
+                padding: 9px 14px;
+			}
+
+            .se-sdk-deactivation-modal .button:focus,
+            .se-sdk-deactivation-modal .button:hover {
+                background: <?php $this->client->printPrimaryColor(); ?>;
+                border-color: <?php $this->client->printPrimaryColor(); ?>;
+                color: #fff;
+				box-shadow: inset 1px 1px 12px -1px #00000040;
+			}
+
+            .se-sdk-deactivation-modal--open-ticket button:focus,
+            .se-sdk-deactivation-modal .button:focus {
+                box-shadow: 0 0 0 1px #fff, 0 0 0 3px <?php $this->client->printPrimaryColor(); ?>;
+            }
+
             .se-sdk-deactivation-modal .button.button-link,
             .se-sdk-deactivation-modal button.button-link {
-                font-size: 12px;
-                line-height: 25px;
-                text-align: left;
-                color: #787878;
-            }
-
-            .se-sdk-deactivation-modal .button.deactivate,
-            .se-sdk-deactivation-modal .button.not-interested {
-                color: #f02e5e;
+                color: #454F59;
+                background: transparent;
                 border-color: transparent;
-                background: transparent;
-                font-weight: normal;
-                font-size: 13px;
-                line-height: 25px;
-                box-shadow: none;
             }
 
-            .se-sdk-deactivation-modal .button.modal-close,
-            .se-sdk-deactivation-modal .button.open-ticket-form {
-                color: #645ff5;
-                border-color: #645ff5;
+            .se-sdk-deactivation-modal .button.button-link:hover,
+            .se-sdk-deactivation-modal button.button-link:hover {
                 background: transparent;
-                font-size: 13px;
-                line-height: 25px;
-                font-weight: 600;
-            }
+                border-color: transparent;
+                box-shadow: none;
+			}
+
+            .se-sdk-deactivation-modal .button.button-link:focus,
+            .se-sdk-deactivation-modal button.button-link:focus {
+                box-shadow: 0 0 0 1px #fff, 0 0 0 3px currentColor;
+			}
+
+            .se-sdk-deactivation-modal .open-ticket-form svg path {
+				fill: <?php $this->client->printPrimaryColor(); ?>
+			}
 
             .se-sdk-deactivation-modal .button.disabled, .se-sdk-deactivation-modal button.disabled {
                 cursor: not-allowed !important;
@@ -1632,16 +1697,8 @@ final class SE_License_SDK_Insights {
                 border-color: transparent !important;
             }
 
-            .se-sdk-deactivation-modal .button.deactivate {
-                border-color: currentColor;
-            }
-
-            .se-sdk-deactivation-modal .button.modal-close {
-                border-color: transparent !important;
-            }
-
             .se-sdk-deactivation-modal input[type=radio]:checked::before {
-                background-color: #645ff5;
+                background-color: <?php $this->client->printPrimaryColor(); ?>;
             }
 
             .se-sdk-deactivation-modal input[type=checkbox]:checked::before {
@@ -1650,7 +1707,7 @@ final class SE_License_SDK_Insights {
 
             .se-sdk-deactivation-modal input[type=checkbox],
             .se-sdk-deactivation-modal input[type=radio] {
-                border-color: #645ff5;
+                border-color: <?php $this->client->printPrimaryColor(); ?>;
             }
 
             /*.se-sdk-deactivation-modal .se-sdk-row input, .se-sdk-deactivation-modal .se-sdk-row textarea { width: calc( 100% - 10px ); margin: 0 5px; display: block; vertical-align: middle; box-sizing: border-box; float: left; }*/
@@ -1682,12 +1739,11 @@ final class SE_License_SDK_Insights {
 							}, data ), // add default action if action is empty.
 							beforeSend: function() {
 								buttonElem.addClass( 'disabled' );
-								buttonElem.text( '<?php esc_html_e( 'Processing...', 'absolute-addons' ); ?>' );
+								buttonElem.text( '<?php esc_html_e( 'Processing...', 'storeengine-sdk' ); ?>' );
 							},
 							complete: function( event, xhr, options ) {
 								buttonElem.removeClass( 'disabled' );
 								buttonElem.text( buttonElem.data('label') );
-								console.log({cb: callback});
 								if ( 'string' === typeof callback ) {
 									window.location.href = callback;
 								} else if ( 'function' === typeof callback ) {
@@ -1713,6 +1769,7 @@ final class SE_License_SDK_Insights {
 						supportURL = '<?php echo esc_url( $this->supportURL ); ?>',
 						closeModal = function( e ) {
 							preventDefault( e );
+							$('body').removeClass('se-sdk-deactivation-modal-open');
 							var buttons = modal.find( '.button' );
 							modal.removeClass( 'modal-active' );
 							// modal.find('.se-sdk-deactivation-modal--wrap').show();
@@ -1722,7 +1779,7 @@ final class SE_License_SDK_Insights {
 							reason.show( 0 );
 							// enable buttons and restore original labels
 							buttons.removeClass( 'disabled' );
-							responseButtons.addClass( 'disabled' );
+							//responseButtons.addClass( 'disabled' );
 							buttons.each( function() {
 								var self = $( this ), label = self.attr( 'data-label' );
 								if ( label ) {
@@ -1762,6 +1819,7 @@ final class SE_License_SDK_Insights {
 								}
 							}
 						};
+
 					// The MUI
 					{
 						// any input el except radio, checkbox and select
@@ -1783,8 +1841,7 @@ final class SE_License_SDK_Insights {
 							}
 						} );
 						// any input el in mui
-						mui.on( 'blur', checkMessageValidity )
-							.on( 'invalid', function( e ) {
+						mui.on( 'blur', checkMessageValidity ).on( 'invalid', function( e ) {
 							preventDefault( e );
 							var self = $( this ), currentMui = self.closest( '.mui' ),
 								label = currentMui.find( 'label' ),
@@ -1799,13 +1856,16 @@ final class SE_License_SDK_Insights {
 							control.after( '<p class="helper-text mui-error">' + e.target.validationMessage + '</p>' );
 						} );
 					}
-					// the clicker
+
+					// The clicker
 					$( '.<?php echo esc_attr( $this->client->getSlug() ); ?>-deactivate-link' ).on( 'click', function( e ) {
 						preventDefault( e );
+						$('body').addClass('se-sdk-deactivation-modal-open');
 						modal.addClass( 'modal-active' );
 						deactivateLink = $( this ).attr( 'href' );
 						modal.find( 'a.dont-bother-me' ).attr( 'href', deactivateLink ).css( 'float', 'left' );
 					} );
+
 					// The Modal
 					modal
 					.on( 'click', '.not-interested', function( e ) {
@@ -1827,13 +1887,15 @@ final class SE_License_SDK_Insights {
 						reason.show( 0 );
 					} )
 					.on( 'click', '.modal-close, .se-sdk-deactivation-modal--close', closeModal )
-					.on( 'click', '.reason-type', function() {
+					.on( 'click', '.reason-type:not(.selected-reason)', function() {
 						//modal.find( '.reason-input' ).remove();
 						modal.find( '.reason-input' ).slideUp(function(){
 							$(this).remove();
 						});
 						var parent = $( this ).closest( '.reason-item' ),
 							inputType = parent.data( 'type' );
+						$(this).closest('.reasons').find('.selected-reason').removeClass('selected-reason');
+							$(this).addClass('selected-reason');
 						if ( inputType !== '' ) {
 							var reasonMessage = $( 'text' === inputType ? '<input type="text" size="40" />' : '<textarea rows="5" cols="45"></textarea>' ).attr( 'placeholder', parent.data( 'placeholder' ) );
 							reasonMessage.slideUp(0);
@@ -1850,7 +1912,7 @@ final class SE_License_SDK_Insights {
 						preventDefault( e );
 						_ajax( {
 							reason_id: 'no-comment',
-							reason_info: '<?php esc_html_e( "I rather wouldn't say.", 'absolute-addons' ); ?>',
+							reason_info: '<?php esc_html_e( "I rather wouldn't say.", 'storeengine-sdk' ); ?>',
 						}, $( this ), deactivateLink );
 					} )
 					.on( 'click', '.deactivate', function( e ) {

@@ -141,7 +141,7 @@ final class SE_License_SDK_Promotions {
 					<?php if ( $logo && ! empty( $logo['src'] ) ) { ?>
 						<div class="se-sdk-promo--logo se-sdk-promo--column">
 							<img src="<?php echo esc_url( $logo['src'] ); ?>"
-								 alt="<?php echo esc_attr( $logo['alt'] ?? __( 'Campaign Logo', 'absolute-addons' ) ); ?>">
+								 alt="<?php echo esc_attr( $logo['alt'] ?? __( 'Campaign Logo', 'storeengine-sdk' ) ); ?>">
 						</div>
 					<?php } ?>
 					<div class="se-sdk-promo--details<?php echo $has_columns ? ' se-sdk-promo--column' : ''; ?>">
@@ -156,7 +156,7 @@ final class SE_License_SDK_Promotions {
 									<?php if ( ! empty( $button['label'] ) ) {
 										echo wp_kses_post( $button['label'] );
 									} else {
-										esc_html_e( 'Learn more', 'absolute-addons' );
+										esc_html_e( 'Learn more', 'storeengine-sdk' );
 									} ?>
 								</a>
 							<?php }
@@ -440,7 +440,7 @@ final class SE_License_SDK_Promotions {
 	 */
 	public function clear_hidden_promos(): bool {
 		if ( ! did_action( 'admin_init' ) ) {
-			_doing_it_wrong( __METHOD__, esc_html__( 'Method must be invoked inside admin_init action.', 'absolute-addons' ), '1.0.0' );
+			_doing_it_wrong( __METHOD__, esc_html__( 'Method must be invoked inside admin_init action.', 'storeengine-sdk' ), '1.0.0' );
 		}
 
 		//return delete_user_option( get_current_user_id(), $this->client->getHookName( 'hidden_promos' ) );
