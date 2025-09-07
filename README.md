@@ -126,7 +126,7 @@ See [license.txt](./license.txt) for license details.
 
 ## Credits
 
-*StoreEngine License Management Client SDK for WordPress* is developed and maintained by [KodeZen](http://kodezen.com/).
+*StoreEngine License Management Client SDK for WordPress* is developed and maintained by [Kodezen](http://kodezen.com/).
 
 Collaboration is welcome! We’d love to work with you to improve this SDK. [Pull Requests](http://github.com/imrantushar/storeengine-license-management-client-sdk/pulls) are highly appreciated.
 
