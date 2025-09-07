@@ -1615,6 +1615,37 @@ final class SE_License_SDK_License {
 		return wp_hash( $data, 'auth', 'sha256' );
 	}
 
+	public function migrate_from_freemius( string $freemius_license ) {
+		$this->updating_license( true );
+		$license   = $this->get_license();
+
+		$license['license']          = $freemius_license;
+		$license['device_id']        = $this->client->get_device_id();
+		$license['freemius_license'] = true;
+
+		// Activate The License.
+		$response = $this->activate( $license );
+
+		if ( ! $response['success'] ) {
+			if ( $response['error'] ) {
+				return new WP_Error( 'error-activating-freemius-license-', $response['error'], $response );
+			} else {
+				return new WP_Error( 'error-activating-freemius-license-', __( 'Unknown error occurred.', 'storeengine-sdk' ), $response );
+			}
+		}
+
+		// Update license status.
+		$this->set_license( wp_parse_args( $response['data'], $license ) );
+
+		$this->updating_license( false );
+
+		$this->schedule_license_check();
+
+		$this->client->set_option( 'migrated_from_freemius', current_time( 'timestamp', 1 ) );
+
+		return true;
+	}
+
 	final public function __clone() {
 		trigger_error( 'Singleton. No cloning allowed!', E_USER_ERROR ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_trigger_error
 	}
