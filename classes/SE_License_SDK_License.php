@@ -744,15 +744,13 @@ final class SE_License_SDK_License {
 	 *
 	 * @return bool
 	 */
-	public function is_valid( array $license = [] ): bool {
+	public function is_valid(): bool {
 		if ( null !== $this->is_valid_license ) {
 			return $this->is_valid_license;
 		}
 
 		// Load the license if already not loaded.
-		if ( empty( $license ) ) {
-			$license = $this->get_license();
-		}
+		$license = $this->get_license();
 
 		if ( isset( $license['license'], $license['device_id'], $license['product_id'], $license['status'] ) && 'active' === $license['status'] ) {
 			$this->is_valid_license = $this->validate_license_signature();
@@ -1512,11 +1510,11 @@ final class SE_License_SDK_License {
 		$this->license               = $this->parse_license_data( $license );
 		$this->license['updated_at'] = current_time( 'timestamp', 1 );
 
-		// Update license signature.
-		$this->update_license_signature();
-
 		// Update in db.
 		$this->client->set_option( 'license_data', $this->license );
+
+		// Update license signature.
+		$this->update_license_signature();
 	}
 
 	/**
@@ -1576,7 +1574,7 @@ final class SE_License_SDK_License {
 		$data    = wp_parse_args( $data, $defaults );
 		$license = [];
 
-		$data['updated_at'] = ! is_numeric( $data['updated_at'] ) ? strtotime( $data['updated_at'] ) : absint( $data['updated_at'] );
+		$data['updated_at'] = $data['updated_at'] && ! is_numeric( $data['updated_at'] ) ? strtotime( $data['updated_at'] ) : absint( $data['updated_at'] );
 		// Sanitize data.
 		$license['license']       = sanitize_text_field( $data['license'] );
 		$license['status']        = strtolower( $data['status'] ) === 'active' ? 'active' : 'inactive';
@@ -1588,7 +1586,7 @@ final class SE_License_SDK_License {
 		$license['activations']   = absint( $data['activations'] );
 		$license['limit']         = absint( $data['limit'] );
 		$license['unlimited']     = (bool) $data['unlimited'];
-		$license['expires']       = strtotime( $data['expires'] );
+		$license['expires']       = $data['expires'] && ! is_numeric( $data['expires'] ) ? strtotime( $data['expires'] ) : absint($data['expires']);
 		$license['updated_at']    = $data['updated_at'];
 
 		return $license;
