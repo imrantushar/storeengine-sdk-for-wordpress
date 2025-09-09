@@ -139,8 +139,8 @@ final class SE_License_SDK_Insights {
 
 		// Plugin deactivate popup.
 		if ( ! $this->client->is_local_request() ) {
-			add_action( 'admin_footer', [ $this, 'deactivate_scripts' ] );
-			add_action( 'plugin_action_links_' . $this->client->getBasename(), [ $this, 'plugin_action_links' ] );
+			add_action( 'admin_footer', [ $this, 'deactivate_scripts' ], PHP_INT_MAX );
+			//add_action( 'plugin_action_links_' . $this->client->getBasename(), [ $this, 'plugin_action_links' ] );
 		}
 
 		$this->init_common();
@@ -520,7 +520,7 @@ final class SE_License_SDK_Insights {
 				$what_we_collect
 			);
 
-			include_once __DIR__ . '/../views/insights-opt-in-notice.php';
+			include __DIR__ . '/../views/insights-opt-in-notice.php';
 		}
 	}
 
@@ -1023,7 +1023,7 @@ final class SE_License_SDK_Insights {
 		</head>
 		<body>
 		<div class="se-sdk-support-ticket-email-template">
-			<?php include_once $this->ticketTemplate; ?>
+			<?php include $this->ticketTemplate; ?>
 			<div style="margin:10px auto">
 				<hr>
 			</div>
@@ -1159,10 +1159,10 @@ final class SE_License_SDK_Insights {
 			 role="dialog" aria-modal="true">
 			<?php
 			if ( $showSupportTicket ) {
-				include_once __DIR__ . '/../views/support-ticket-form.php';
+				include __DIR__ . '/../views/support-ticket-form.php';
 			}
 
-			include_once __DIR__ . '/../views/deactivation-reasons.php';
+			include __DIR__ . '/../views/deactivation-reasons.php';
 			?>
 		</div>
 		<!--suppress CssUnusedSymbol, CssInvalidPseudoSelector, CssFloatPxLength -->
@@ -1177,7 +1177,7 @@ final class SE_License_SDK_Insights {
 
             .se-sdk-deactivation-modal {
                 position: fixed;
-                z-index: 99999;
+                z-index: 9999999;
                 top: 0;
                 right: 0;
                 bottom: 0;
@@ -1716,257 +1716,255 @@ final class SE_License_SDK_Insights {
 		<!--suppress ES6ConvertVarToLetConst, JSUnresolvedVariable -->
 		<script type="text/javascript">
 			( function( $ ) {
-				$( function() {
-					/**
-					 * Ajax Helper For Submitting Deactivation Reasons
-					 * @param {Object} data
-					 * @param {*|jQuery} buttonElem
-					 * @param {String|Function} callback
-					 * @returns {*|jQuery}
-					 * @private
-					 */
-					function _ajax( data, buttonElem, callback ) {
-						if ( buttonElem.hasClass( 'disabled' ) ) {
-							return;
-						}
-						buttonElem.data( 'label', buttonElem.text() );
-						return $.ajax( {
-							url: ajaxurl,
-							type: 'POST',
-							data: $.fn.extend( {}, {
-								action: '<?php echo esc_attr( $this->client->getHookName( 'submit-uninstall-reason' ) ); ?>',
-								_wpnonce: '<?php echo esc_attr( wp_create_nonce( $this->client->getHookName( 'insight_action' ) ) ); ?>',
-							}, data ), // add default action if action is empty.
-							beforeSend: function() {
-								buttonElem.addClass( 'disabled' );
-								buttonElem.text( '<?php esc_html_e( 'Processing...', 'storeengine-sdk' ); ?>' );
-							},
-							complete: function( event, xhr, options ) {
-								buttonElem.removeClass( 'disabled' );
-								buttonElem.text( buttonElem.data('label') );
-								if ( 'string' === typeof callback ) {
-									window.location.href = callback;
-								} else if ( 'function' === typeof callback ) {
-									callback( {event: event, xhr: xhr, options: options} );
-								}
-							},
-						} );
+				/**
+				 * Ajax Helper For Submitting Deactivation Reasons
+				 * @param {Object} data
+				 * @param {*|jQuery} buttonElem
+				 * @param {String|Function} callback
+				 * @returns {*|jQuery}
+				 * @private
+				 */
+				function _ajax( data, buttonElem, callback ) {
+					if ( buttonElem.hasClass( 'disabled' ) ) {
+						return;
 					}
-
-					// Variables.
-					var modal = $( '#<?php echo esc_attr( $this->client->getSlug() ); ?>-se-sdk-deactivation-modal' ),
-						deactivateLink = '',
-						reason = modal.find( '.reason' ),
-						support = modal.find( '.support' ),
-						supportResponse = support.find( '.response' ),
-						//reasonResponse = reason.find( '.response' ),
-						mui = modal.find( '.mui input, .mui textarea, .mui select' ),
-						validMessage = [],
-						preventDefault = function( e ) {
-							e && e.preventDefault();
+					buttonElem.data( 'label', buttonElem.text() );
+					return $.ajax( {
+						url: ajaxurl,
+						type: 'POST',
+						data: $.fn.extend( {}, {
+							action: '<?php echo esc_attr( $this->client->getHookName( 'submit-uninstall-reason' ) ); ?>',
+							_wpnonce: '<?php echo esc_attr( wp_create_nonce( $this->client->getHookName( 'insight_action' ) ) ); ?>',
+						}, data ), // add default action if action is empty.
+						beforeSend: function() {
+							buttonElem.addClass( 'disabled' );
+							buttonElem.text( '<?php esc_html_e( 'Processing...', 'storeengine-sdk' ); ?>' );
 						},
-						responseButtons = modal.find( '.reason .se-sdk-deactivation-modal--footer .button' ),
-						supportURL = '<?php echo esc_url( $this->supportURL ); ?>',
-						closeModal = function( e ) {
-							preventDefault( e );
-							$('body').removeClass('se-sdk-deactivation-modal-open');
-							var buttons = modal.find( '.button' );
-							modal.removeClass( 'modal-active' );
-							// modal.find('.se-sdk-deactivation-modal--wrap').show();
-							supportResponse.hide().find( '.wrapper' ).html( '' );
-							//reasonResponse.show();
-							support.hide();
-							reason.show( 0 );
-							// enable buttons and restore original labels
-							buttons.removeClass( 'disabled' );
-							//responseButtons.addClass( 'disabled' );
-							buttons.each( function() {
-								var self = $( this ), label = self.attr( 'data-label' );
-								if ( label ) {
-									self.text( label );
-								}
-							} );
-							modal.find( 'input[type="radio"]' ).prop( 'checked', false );
-							$( '.reason-input', modal ).remove();
-						},
-						checkMessageValidity = function( e ) {
-							// e.target.checkValidity();
-							var target = e && e.target ? e.target : this;
-							var self = $( this ), currentMui = self.closest( '.mui' ),
-								label = currentMui.find( 'label' ),
-								control = currentMui.find( '.se-sdk-form-control' );
-							if ( target.checkValidity() ) {
-								if ( label.hasClass( 'mui-error' ) ) {
-									label.removeClass( 'mui-error' );
-								}
-								if ( control.hasClass( 'mui-error' ) ) {
-									control.removeClass( 'mui-error' );
-								}
-								currentMui.find( 'p.helper-text' ).hide().remove();
-								validMessage.push(true)
-							} else {
-								validMessage.push(false)
+						complete: function( event, xhr, options ) {
+							buttonElem.removeClass( 'disabled' );
+							buttonElem.text( buttonElem.data('label') );
+							if ( 'string' === typeof callback ) {
+								window.location.href = callback;
+							} else if ( 'function' === typeof callback ) {
+								callback( {event: event, xhr: xhr, options: options} );
 							}
 						},
-						resetTicketForm = function( clearValues, clearAll ) {
-							modal.find( 'p.helper-text.mui-error' ).remove();
-							modal.find( '.mui-error' ).removeClass( 'mui-error' );
-							if ( clearValues ) {
-								if ( clearAll ) {
-									mui.val( '' );
-								} else {
+					} );
+				}
+
+				// Variables.
+				var modal = $( '#<?php echo esc_attr( $this->client->getSlug() ); ?>-se-sdk-deactivation-modal' ),
+					deactivateLink = '',
+					reason = modal.find( '.reason' ),
+					support = modal.find( '.support' ),
+					supportResponse = support.find( '.response' ),
+					//reasonResponse = reason.find( '.response' ),
+					mui = modal.find( '.mui input, .mui textarea, .mui select' ),
+					validMessage = [],
+					preventDefault = function( e ) {
+						e && e.preventDefault();
+					},
+					responseButtons = modal.find( '.reason .se-sdk-deactivation-modal--footer .button' ),
+					supportURL = '<?php echo esc_url( $this->supportURL ); ?>',
+					closeModal = function( e ) {
+						preventDefault( e );
+						$('body').removeClass('se-sdk-deactivation-modal-open');
+						var buttons = modal.find( '.button' );
+						modal.removeClass( 'modal-active' );
+						// modal.find('.se-sdk-deactivation-modal--wrap').show();
+						supportResponse.hide().find( '.wrapper' ).html( '' );
+						//reasonResponse.show();
+						support.hide();
+						reason.show( 0 );
+						// enable buttons and restore original labels
+						buttons.removeClass( 'disabled' );
+						//responseButtons.addClass( 'disabled' );
+						buttons.each( function() {
+							var self = $( this ), label = self.attr( 'data-label' );
+							if ( label ) {
+								self.text( label );
+							}
+						} );
+						modal.find( 'input[type="radio"]' ).prop( 'checked', false );
+						$( '.reason-input', modal ).remove();
+					},
+					checkMessageValidity = function( e ) {
+						// e.target.checkValidity();
+						var target = e && e.target ? e.target : this;
+						var self = $( this ), currentMui = self.closest( '.mui' ),
+							label = currentMui.find( 'label' ),
+							control = currentMui.find( '.se-sdk-form-control' );
+						if ( target.checkValidity() ) {
+							if ( label.hasClass( 'mui-error' ) ) {
+								label.removeClass( 'mui-error' );
+							}
+							if ( control.hasClass( 'mui-error' ) ) {
+								control.removeClass( 'mui-error' );
+							}
+							currentMui.find( 'p.helper-text' ).hide().remove();
+							validMessage.push(true)
+						} else {
+							validMessage.push(false)
+						}
+					},
+					resetTicketForm = function( clearValues, clearAll ) {
+						modal.find( 'p.helper-text.mui-error' ).remove();
+						modal.find( '.mui-error' ).removeClass( 'mui-error' );
+						if ( clearValues ) {
+							if ( clearAll ) {
+								mui.val( '' );
+							} else {
+								modal.find( '#se-sdk-support--message,#se-sdk-support--subject' ).val( '' );
+							}
+						}
+					};
+
+				// The MUI
+				{
+					// any input el except radio, checkbox and select
+					mui.not( 'select' ).not( '[type="checkbox"]' ).not( '[type="radio"]' ).on( 'focus', function() {
+						var self = $( this ), currentMui = self.closest( '.mui' ),
+							label = currentMui.find( 'label' ),
+							control = currentMui.find( '.se-sdk-form-control' );
+						control.addClass( 'focused' );
+						label.addClass( 'focused' );
+						label.addClass( 'shrink' );
+					} ).on( 'blur', function() {
+						var self = $( this ), currentMui = self.closest( '.mui' ),
+							label = currentMui.find( 'label' ),
+							control = currentMui.find( '.se-sdk-form-control' );
+						control.removeClass( 'focused' );
+						label.removeClass( 'focused' );
+						if ( self.val() === '' ) {
+							label.removeClass( 'shrink' );
+						}
+					} );
+					// any input el in mui
+					mui.on( 'blur', checkMessageValidity ).on( 'invalid', function( e ) {
+						preventDefault( e );
+						var self = $( this ), currentMui = self.closest( '.mui' ),
+							label = currentMui.find( 'label' ),
+							control = currentMui.find( '.se-sdk-form-control' );
+						currentMui.find( 'p.helper-text' ).remove();
+						if ( !label.hasClass( 'mui-error' ) ) {
+							label.addClass( 'mui-error' );
+						}
+						if ( !control.hasClass( 'mui-error' ) ) {
+							control.addClass( 'mui-error' );
+						}
+						control.after( '<p class="helper-text mui-error">' + e.target.validationMessage + '</p>' );
+					} );
+				}
+
+				// The clicker
+				$( 'tr[data-slug="<?php echo esc_attr( $this->client->getSlug() ); ?>"] .deactivate a' ).off( 'click' ).on( 'click', function( e ) {
+					preventDefault( e );
+					$( 'body' ).addClass( 'se-sdk-deactivation-modal-open' );
+					modal.addClass( 'modal-active' );
+					deactivateLink = $( this ).attr( 'href' );
+					modal.find( 'a.dont-bother-me' ).attr( 'href', deactivateLink ).css( 'float', 'left' );
+				} );
+
+				// The Modal
+				modal
+				.on( 'click', '.not-interested', function( e ) {
+					preventDefault( e );
+					$( this ).closest( '.response' ).slideUp();
+					// responseButtons.removeClass('disabled');
+				} )
+				.on( 'click', '.open-ticket-form', function( e ) {
+					preventDefault( e );
+					support.show( 0 );
+					reason.hide( 0 );
+					supportResponse.find( '.wrapper' ).html( '' );
+					supportResponse.hide(0);
+					resetTicketForm( true );
+				} )
+				.on( 'click', '.close-ticket', function( e ) {
+					preventDefault( e );
+					support.hide( 0 );
+					reason.show( 0 );
+				} )
+				.on( 'click', '.modal-close, .se-sdk-deactivation-modal--close', closeModal )
+				.on( 'click', '.reason-type:not(.selected-reason)', function() {
+					//modal.find( '.reason-input' ).remove();
+					modal.find( '.reason-input' ).slideUp(function(){
+						$(this).remove();
+					});
+					var parent = $( this ).closest( '.reason-item' ),
+						inputType = parent.data( 'type' );
+					$(this).closest('.reasons').find('.selected-reason').removeClass('selected-reason');
+						$(this).addClass('selected-reason');
+					if ( inputType !== '' ) {
+						var reasonMessage = $( 'text' === inputType ? '<input type="text" size="40" />' : '<textarea rows="5" cols="45"></textarea>' ).attr( 'placeholder', parent.data( 'placeholder' ) );
+						reasonMessage.slideUp(0);
+						$( '<div class="reason-input"></div>' ).append( reasonMessage ).appendTo( parent );
+						reasonMessage.slideDown('fast');
+						reasonMessage.focus();
+					}
+
+					if ( responseButtons.hasClass( 'disabled' ) ) {
+						responseButtons.removeClass( 'disabled' );
+					}
+				} )
+				.on( 'click', '.dont-bother-me', function( e ) {
+					preventDefault( e );
+					_ajax( {
+						reason_id: 'no-comment',
+						reason_info: '<?php esc_html_e( "I rather wouldn't say.", 'storeengine-sdk' ); ?>',
+					}, $( this ), deactivateLink );
+				} )
+				.on( 'click', '.deactivate', function( e ) {
+					preventDefault( e );
+					var $radio = $( 'input[type="radio"]:checked', modal ),
+						$input = $radio.closest('.reason-item').find( 'textarea, input[type="text"]' );
+					_ajax( {
+						reason_id: ( 0 === $radio.length ) ? 'none' : $radio.val(),
+						reason_info: ( 0 !== $input.length ) ? $input.val().trim() : '',
+					}, $( this ), deactivateLink );
+				} )
+				.on( 'click', '.send-ticket', function( e ) {
+					preventDefault( e );
+					validMessage = [];
+					mui.each( checkMessageValidity );
+					if ( !validMessage.every( Boolean ) ) {
+						return;
+					}
+					var buttonElem = $( this ),
+						__BTN_TEXT__ = buttonElem.text(),
+						data = {
+							action: '<?php echo esc_attr( $this->client->getHookName( 'submit-support-ticket' ) ); ?>',
+						};
+					mui.each( function() {
+						data[$( this ).attr( 'name' )] = $( this ).val();
+					} );
+					_ajax( data, $( this ), function( jqXhr ) {
+						buttonElem.removeClass('disabled').text( __BTN_TEXT__ );
+						if ( 'error' === jqXhr.xhr ) {
+							supportResponse.find( '.wrapper' ).html( '<p class="mui-error"><?php esc_html_e( 'Something went wrong. Please refresh or try again.' ); ?></p>' );
+							supportResponse.show();
+						} else {
+							var response = jqXhr.event.responseJSON;
+							if ( response.hasOwnProperty( 'data' ) ) {
+								var message = response.success ? '<p>' + response.data + '</p>' : '<p class="mui-error">' + response.data + '</p>';
+								supportResponse.find( '.wrapper' ).html( message );
+								supportResponse.show();
+
+								if ( response.success ) {
 									modal.find( '#se-sdk-support--message,#se-sdk-support--subject' ).val( '' );
 								}
+								return;
 							}
-						};
 
-					// The MUI
-					{
-						// any input el except radio, checkbox and select
-						mui.not( 'select' ).not( '[type="checkbox"]' ).not( '[type="radio"]' ).on( 'focus', function() {
-							var self = $( this ), currentMui = self.closest( '.mui' ),
-								label = currentMui.find( 'label' ),
-								control = currentMui.find( '.se-sdk-form-control' );
-							control.addClass( 'focused' );
-							label.addClass( 'focused' );
-							label.addClass( 'shrink' );
-						} ).on( 'blur', function() {
-							var self = $( this ), currentMui = self.closest( '.mui' ),
-								label = currentMui.find( 'label' ),
-								control = currentMui.find( '.se-sdk-form-control' );
-							control.removeClass( 'focused' );
-							label.removeClass( 'focused' );
-							if ( self.val() === '' ) {
-								label.removeClass( 'shrink' );
+							if ( ! supportURL ) {
+								return;
 							}
-						} );
-						// any input el in mui
-						mui.on( 'blur', checkMessageValidity ).on( 'invalid', function( e ) {
-							preventDefault( e );
-							var self = $( this ), currentMui = self.closest( '.mui' ),
-								label = currentMui.find( 'label' ),
-								control = currentMui.find( '.se-sdk-form-control' );
-							currentMui.find( 'p.helper-text' ).remove();
-							if ( !label.hasClass( 'mui-error' ) ) {
-								label.addClass( 'mui-error' );
-							}
-							if ( !control.hasClass( 'mui-error' ) ) {
-								control.addClass( 'mui-error' );
-							}
-							control.after( '<p class="helper-text mui-error">' + e.target.validationMessage + '</p>' );
-						} );
-					}
-
-					// The clicker
-					$( '.<?php echo esc_attr( $this->client->getSlug() ); ?>-deactivate-link' ).on( 'click', function( e ) {
-						preventDefault( e );
-						$('body').addClass('se-sdk-deactivation-modal-open');
-						modal.addClass( 'modal-active' );
-						deactivateLink = $( this ).attr( 'href' );
-						modal.find( 'a.dont-bother-me' ).attr( 'href', deactivateLink ).css( 'float', 'left' );
-					} );
-
-					// The Modal
-					modal
-					.on( 'click', '.not-interested', function( e ) {
-						preventDefault( e );
-						$( this ).closest( '.response' ).slideUp();
-						// responseButtons.removeClass('disabled');
-					} )
-					.on( 'click', '.open-ticket-form', function( e ) {
-						preventDefault( e );
-						support.show( 0 );
-						reason.hide( 0 );
-						supportResponse.find( '.wrapper' ).html( '' );
-						supportResponse.hide(0);
-						resetTicketForm( true );
-					} )
-					.on( 'click', '.close-ticket', function( e ) {
-						preventDefault( e );
-						support.hide( 0 );
-						reason.show( 0 );
-					} )
-					.on( 'click', '.modal-close, .se-sdk-deactivation-modal--close', closeModal )
-					.on( 'click', '.reason-type:not(.selected-reason)', function() {
-						//modal.find( '.reason-input' ).remove();
-						modal.find( '.reason-input' ).slideUp(function(){
-							$(this).remove();
-						});
-						var parent = $( this ).closest( '.reason-item' ),
-							inputType = parent.data( 'type' );
-						$(this).closest('.reasons').find('.selected-reason').removeClass('selected-reason');
-							$(this).addClass('selected-reason');
-						if ( inputType !== '' ) {
-							var reasonMessage = $( 'text' === inputType ? '<input type="text" size="40" />' : '<textarea rows="5" cols="45"></textarea>' ).attr( 'placeholder', parent.data( 'placeholder' ) );
-							reasonMessage.slideUp(0);
-							$( '<div class="reason-input"></div>' ).append( reasonMessage ).appendTo( parent );
-							reasonMessage.slideDown('fast');
-							reasonMessage.focus();
+							setTimeout( function() {
+								window.open( supportURL, '_blank' );
+								// supportResponse.slideUp();
+								buttonElem.hasClass( 'disabled' ) && buttonElem.removeClass( 'disabled' );
+							}, 5000 );
 						}
-
-						if ( responseButtons.hasClass( 'disabled' ) ) {
-							responseButtons.removeClass( 'disabled' );
-						}
-					} )
-					.on( 'click', '.dont-bother-me', function( e ) {
-						preventDefault( e );
-						_ajax( {
-							reason_id: 'no-comment',
-							reason_info: '<?php esc_html_e( "I rather wouldn't say.", 'storeengine-sdk' ); ?>',
-						}, $( this ), deactivateLink );
-					} )
-					.on( 'click', '.deactivate', function( e ) {
-						preventDefault( e );
-						var $radio = $( 'input[type="radio"]:checked', modal ),
-							$input = $radio.closest('.reason-item').find( 'textarea, input[type="text"]' );
-						_ajax( {
-							reason_id: ( 0 === $radio.length ) ? 'none' : $radio.val(),
-							reason_info: ( 0 !== $input.length ) ? $input.val().trim() : '',
-						}, $( this ), deactivateLink );
-					} )
-					.on( 'click', '.send-ticket', function( e ) {
-						preventDefault( e );
-						validMessage = [];
-						mui.each( checkMessageValidity );
-						if ( !validMessage.every( Boolean ) ) {
-							return;
-						}
-						var buttonElem = $( this ),
-							__BTN_TEXT__ = buttonElem.text(),
-							data = {
-								action: '<?php echo esc_attr( $this->client->getHookName( 'submit-support-ticket' ) ); ?>',
-							};
-						mui.each( function() {
-							data[$( this ).attr( 'name' )] = $( this ).val();
-						} );
-						_ajax( data, $( this ), function( jqXhr ) {
-							buttonElem.removeClass('disabled').text( __BTN_TEXT__ );
-							if ( 'error' === jqXhr.xhr ) {
-								supportResponse.find( '.wrapper' ).html( '<p class="mui-error"><?php esc_html_e( 'Something went wrong. Please refresh or try again.' ); ?></p>' );
-								supportResponse.show();
-							} else {
-								var response = jqXhr.event.responseJSON;
-								if ( response.hasOwnProperty( 'data' ) ) {
-									var message = response.success ? '<p>' + response.data + '</p>' : '<p class="mui-error">' + response.data + '</p>';
-									supportResponse.find( '.wrapper' ).html( message );
-									supportResponse.show();
-
-									if ( response.success ) {
-										modal.find( '#se-sdk-support--message,#se-sdk-support--subject' ).val( '' );
-									}
-									return;
-								}
-
-								if ( ! supportURL ) {
-									return;
-								}
-								setTimeout( function() {
-									window.open( supportURL, '_blank' );
-									// supportResponse.slideUp();
-									buttonElem.hasClass( 'disabled' ) && buttonElem.removeClass( 'disabled' );
-								}, 5000 );
-							}
-						} );
 					} );
 				} );
 			}( jQuery ) );

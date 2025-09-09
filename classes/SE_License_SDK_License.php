@@ -649,7 +649,7 @@ final class SE_License_SDK_License {
 
 		do_action( $this->client->getHookName( 'before_license_section' ), $action );
 
-		include_once __DIR__ . '/../views/license-form.php';
+		include __DIR__ . '/../views/license-form.php';
 
 		do_action( $this->client->getHookName( 'after_license_section' ) );
 	}
