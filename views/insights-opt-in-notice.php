@@ -53,7 +53,7 @@ if ( ! defined( 'ABSPATH' ) ) {
             padding: 24px 32px !important;
             border-width: 0 !important;
             border-left-color: <?php $this->client->printPrimaryColor(); ?> !important;
-            border-left-width: 4px
+            border-left-width: 4px !important;
         }
 
         @media (max-width: 768px) {
