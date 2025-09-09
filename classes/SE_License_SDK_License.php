@@ -738,10 +738,6 @@ final class SE_License_SDK_License {
 	/**
 	 * Check this is a valid license.
 	 *
-	 * @param array $license Optional. A license instance to check.
-	 *                       Default blank.
-	 *                       If blank it will test against license from database..
-	 *
 	 * @return bool
 	 */
 	public function is_valid(): bool {
