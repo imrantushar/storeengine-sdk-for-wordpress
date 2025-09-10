@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 ?>
-	<div class="se-sdk-license-settings">
+	<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> se-sdk-license-settings" style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
 		<div class="se-sdk-license-section">
 			<div class="se-sdk-license-details">
 				<div class="se-sdk-license-details-contents">

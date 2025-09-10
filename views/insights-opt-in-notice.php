@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 ?>
-	<div class="se-sdk-insights-notice updated">
+	<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> se-sdk-insights-notice updated" style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
 		<?php if ( $this->client->getProductLogo() ) { ?>
 			<div class="se-sdk-insights-notice-branding">
 				<img width="100" height="100" src="<?php echo esc_attr( $this->client->getProductLogo() ); ?>" alt="<?php echo esc_attr( $this->client->getPackageName() ); ?>">
@@ -43,7 +43,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 			} )( jQuery );
 		</script>
 	</div>
-
 	<style>
         .se-sdk-insights-notice {
             display: flex;
@@ -52,7 +51,7 @@ if ( ! defined( 'ABSPATH' ) ) {
             color: #1E1E1E;
             padding: 24px 32px !important;
             border-width: 0 !important;
-            border-left-color: <?php $this->client->printPrimaryColor(); ?> !important;
+            border-left-color: var( --se-sdk-primary-color ) !important;
             border-left-width: 4px !important;
         }
 
@@ -78,11 +77,11 @@ if ( ! defined( 'ABSPATH' ) ) {
         .se-sdk-insights-notice a,
         .se-sdk-insights-notice .highlight {
             background-color: transparent;
-            color: <?php $this->client->printPrimaryColor(); ?>;
+            color: var( --se-sdk-primary-color );
         }
 
         .se-sdk-insights-notice a:focus {
-            box-shadow: 0 0 0 2px <?php $this->client->printPrimaryColor(); ?>;
+            box-shadow: 0 0 0 2px var( --se-sdk-primary-color );
         }
 
         .se-sdk-insights-notice--title {
@@ -142,7 +141,7 @@ if ( ! defined( 'ABSPATH' ) ) {
             border-radius: 4px;
             padding: 6px 12px;
             color: #FFFFFF;
-            background: <?php $this->client->printPrimaryColor(); ?>;
+            background: var( --se-sdk-primary-color );
             text-align: center;
             font-size: 14px;
             font-style: normal;
@@ -152,7 +151,7 @@ if ( ! defined( 'ABSPATH' ) ) {
             height: auto !important;
         }
         .se-sdk-insights--opt-in-submit .buttons a.button-primary:focus {
-            box-shadow: 0 0 0 1px #fff, 0 0 0 3px <?php $this->client->printPrimaryColor(); ?>;
+            box-shadow: 0 0 0 1px #fff, 0 0 0 3px var( --se-sdk-primary-color );
         }
 
         .se-sdk-insights--opt-in-submit .buttons a.button-secondary {

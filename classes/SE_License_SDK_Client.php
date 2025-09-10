@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Class Client
  */
@@ -271,16 +272,15 @@ final class SE_License_SDK_Client {
 		if ( ! empty( $args['init_insights'] ) ) {
 			// Init insights.
 			$client->insights()
-				->set_data_being_collected( $args['data_being_collected'] ?? null )
-				->set_terms_url( $args['terms_url'] ?? '' )
-				->set_privacy_policy_url( $args['privacy_policy_url'] ?? '' )
-				->set_support_url( $args['support_url'] ?? '' )
-				->set_support_response( $args['support_ticket_response'] ?? '' )
-				->set_support_error_response( $args['support_ticket_error_response'] ?? '' )
-				->set_ticket_template( $args['ticket_template'] ?? '' )
-				->set_ticket_recipient( $args['ticket_recipient'] ?? '' )
-				->init()
-			;
+			       ->set_data_being_collected( $args['data_being_collected'] ?? null )
+			       ->set_terms_url( $args['terms_url'] ?? '' )
+			       ->set_privacy_policy_url( $args['privacy_policy_url'] ?? '' )
+			       ->set_support_url( $args['support_url'] ?? '' )
+			       ->set_support_response( $args['support_ticket_response'] ?? '' )
+			       ->set_support_error_response( $args['support_ticket_error_response'] ?? '' )
+			       ->set_ticket_template( $args['ticket_template'] ?? '' )
+			       ->set_ticket_recipient( $args['ticket_recipient'] ?? '' )
+			       ->init();
 		}
 
 		if ( ! empty( $args['init_promotions'] ) ) {
@@ -739,7 +739,7 @@ final class SE_License_SDK_Client {
 		$timeout  = $this->validate_timeout( $args );
 
 		// Body.
-		$body         = array_merge( $args['body'], [
+		$body = array_merge( $args['body'], [
 			'is_free'     => $this->is_free,
 			'slug'        => $this->getSlug(),
 			'site_url'    => site_url(),
@@ -946,8 +946,12 @@ final class SE_License_SDK_Client {
 		return $this->product_logo;
 	}
 
+	public function getPrimaryColor(): string {
+		return $this->primary_color;
+	}
+
 	public function printPrimaryColor() {
-		echo $this->primary_color;
+		echo esc_attr( $this->primary_color );
 	}
 
 	/**

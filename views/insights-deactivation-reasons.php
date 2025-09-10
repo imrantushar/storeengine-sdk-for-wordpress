@@ -1,4 +1,10 @@
 <?php
+/**
+ * @var SE_License_SDK_Insights $this
+ * @var array $reasons
+ * @var string $terms_policy_text
+ */
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }

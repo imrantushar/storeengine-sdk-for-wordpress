@@ -252,7 +252,7 @@ final class SE_License_SDK_License {
 			$host = wp_parse_url( $this->client->getLicenseserver(), PHP_URL_HOST );
 			if ( ! defined( 'WP_ACCESSIBLE_HOSTS' ) || ( defined( 'WP_ACCESSIBLE_HOSTS' ) && false === stristr( WP_ACCESSIBLE_HOSTS, $host ) ) ) {
 				?>
-				<div class="notice notice-error">
+				<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> notice notice-error"style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
 					<p><?php
 						printf(
 						/* translators: 1: Warning in bold tag, 2: This plugin name, 3: API Host Name, 4: WP_ACCESSIBLE_HOSTS constant */
@@ -272,7 +272,7 @@ final class SE_License_SDK_License {
 
 		if ( ! empty( $this->error ) ) {
 			?>
-			<div class="notice notice-error notice-alt is-dismissible">
+			<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> notice notice-error notice-alt is-dismissible" style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
 				<?php echo wp_kses_post( wpautop( $this->error ) ); ?>
 			</div>
 			<?php
@@ -280,7 +280,7 @@ final class SE_License_SDK_License {
 
 		if ( ! empty( $this->success ) ) {
 			?>
-			<div class="notice notice-success is-dismissible">
+			<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> notice notice-success is-dismissible" style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
 				<?php echo wp_kses_post( wpautop( $this->success ) ); ?>
 			</div>
 			<?php
@@ -290,7 +290,7 @@ final class SE_License_SDK_License {
 	protected function inactive_license_notice() {
 		if ( ! $this->is_license_page && ! $this->is_valid() && ! $this->is_updating_license() ) {
 			?>
-			<div class="se-sdk-license-notice notice updated">
+			<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> se-sdk-license-notice notice updated" style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
 				<span>
 					<?php
 					printf(
@@ -307,7 +307,7 @@ final class SE_License_SDK_License {
                 .se-sdk-license-notice {
                     color: #141A24;
                     padding: 24px !important;
-                    border-left-color: <?php $this->client->printPrimaryColor(); ?> !important;
+                    border-left-color: var( --se-sdk-primary-color ) !important;
                     border-width: 0 !important;
                     border-left-width: 4px !important;
                 }
@@ -322,11 +322,11 @@ final class SE_License_SDK_License {
                 .se-sdk-license-notice a,
                 .se-sdk-license-notice .highlight {
                     background-color: transparent;
-                    color: <?php $this->client->printPrimaryColor(); ?>;
+                    color: var( --se-sdk-primary-color );
                 }
 
                 .se-sdk-license-notice a:focus {
-                    box-shadow: 0 0 0 2px <?php $this->client->printPrimaryColor(); ?>;
+                    box-shadow: 0 0 0 2px var( --se-sdk-primary-color );
                 }
 			</style>
 			<?php
@@ -609,7 +609,7 @@ final class SE_License_SDK_License {
 	 */
 	public function render_menu_page() {
 		?>
-		<div class="wrap se-sdk-license-settings-wrapper">
+		<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> wrap se-sdk-license-settings-wrapper" style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
 			<h1 class="wp-heading-inline"><?php printf(
 				/* translators: 1. Theme/Plugin Name. */
 					esc_html__( '%s License Management', 'storeengine-sdk' ),
@@ -814,11 +814,11 @@ final class SE_License_SDK_License {
             .se-sdk-license-settings .highlight {
                 background-color: transparent;
 				text-decoration: none;
-                color: <?php $this->client->printPrimaryColor(); ?>;
+                color: var( --se-sdk-primary-color );
             }
 
             .se-sdk-license-settings a:focus {
-                box-shadow: 0 0 0 2px <?php $this->client->printPrimaryColor(); ?>;
+                box-shadow: 0 0 0 2px var( --se-sdk-primary-color );
             }
 
             .se-sdk-license-settings {
@@ -860,7 +860,7 @@ final class SE_License_SDK_License {
                 max-width: 160px;
                 height: 30px;
                 /*fill: #0082bf;*/
-                fill: <?php $this->client->printPrimaryColor(); ?>;
+                fill: var( --se-sdk-primary-color );
             }
 
             .se-sdk-license-title h2 {
@@ -989,7 +989,7 @@ final class SE_License_SDK_License {
                 padding: 10px 16px;
                 border-radius: 4px;
                 border: none;
-                background: <?php $this->client->printPrimaryColor(); ?>;
+                background: var( --se-sdk-primary-color );
                 white-space: nowrap;
                 color: #FFF;
                 font-size: 14px;
@@ -1009,7 +1009,7 @@ final class SE_License_SDK_License {
 
             .se-sdk-license-fields .dashboard-button:focus,
             .se-sdk-license-fields .activate-button:focus {
-                box-shadow: 0 0 0 1px #fff, 0 0 0 3px <?php $this->client->printPrimaryColor(); ?>;
+                box-shadow: 0 0 0 1px #fff, 0 0 0 3px var( --se-sdk-primary-color );
             }
 
             .se-sdk-license-fields button.deactivate-button:focus {

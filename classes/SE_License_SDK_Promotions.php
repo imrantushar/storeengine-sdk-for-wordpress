@@ -67,13 +67,14 @@ final class SE_License_SDK_Promotions {
 	 * @return void
 	 */
 	public function init_internal() {
-		$this->promotions        = $this->get_promos();
-		$this->hidden_promotions = get_transient( $this->client->getHookName( 'hidden_promos' ) );
+		$this->promotions = $this->get_promos();
+		$temp_hidden      = get_transient( $this->client->getHookName( 'hidden_promos' ) );
+		$user_hidden      = get_user_option( $this->client->getHookName( 'hidden_promos' ), get_current_user_id() );
+		$temp_hidden      = ! is_array( $temp_hidden ) ? [] : $temp_hidden;
+		$user_hidden      = ! is_array( $user_hidden ) ? [] : $user_hidden;
 
-		if ( ! $this->hidden_promotions ) {
-			$this->hidden_promotions = [];
-		}
-//		$this->hidden_promotions = (array) get_user_option( $this->client->getHookName( 'hidden_promos' ), get_current_user_id() );
+		// Combine hidden for current user.
+		$this->hidden_promotions = array_unique( array_filter( array_merge( $temp_hidden, $user_hidden ) ) );
 
 		// only run if there is active promotions.
 		if ( count( $this->promotions ) ) {
@@ -95,7 +96,11 @@ final class SE_License_SDK_Promotions {
 		}
 
 		foreach ( $this->promotions as $promotion ) {
-			$wrapperStyles = '';
+			if ( empty( $promotion['content'] ) ) {
+				continue;
+			}
+
+			$wrapperStyles = '--se-sdk-primary-color:' . esc_attr( $this->client->getPrimaryColor() ) . ';';
 			$buttonStyles  = '';
 			$button        = $promotion['button'] ?? null;
 			$logo          = $promotion['logo'] ?? null;
@@ -132,7 +137,7 @@ final class SE_License_SDK_Promotions {
 				}
 			}
 			?>
-			<div class="notice notice-success se-sdk-promo is-dismissible"
+			<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> notice notice-success se-sdk-promo is-dismissible"
 				 id="se-sdk-promo-<?php echo esc_attr( $promotion['hash'] ); ?>"
 				 data-hash="<?php echo esc_attr( $promotion['hash'] ); ?>"
 				 data-nonce="<?php echo esc_attr( wp_create_nonce( 'se-sdk-dismiss-promo' ) ); ?>"
@@ -282,22 +287,28 @@ final class SE_License_SDK_Promotions {
 	 * @return void
 	 */
 	public function print_promo_notice_styles() {
+		static $did_print = false;
+
+		if ( $did_print ) {
+			return;
+		}
+		$did_print = true;
 		?>
 		<!--suppress CssUnusedSymbol -->
 		<style>
             .se-sdk-promo {
                 border: none;
-                padding: 15px 0;
+                padding: 15px;
             }
 
             .se-sdk-promo--wrap {
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                text-align: center;
-                color: inherit;
                 max-width: 1820px;
                 margin: 0 auto;
+                width: 100%;
+                gap: 24px;
             }
 
             .se-sdk-promo--wrap.no-column {
@@ -305,11 +316,13 @@ final class SE_License_SDK_Promotions {
             }
 
             .se-sdk-promo--column.se-sdk-promo--logo {
-                flex: 0 0 25%;
+                flex: 0 1 auto;
             }
 
             .se-sdk-promo--column.se-sdk-promo--logo img {
-                height: 48px;
+                max-height: 101px;
+                min-height: 75px;
+				height: 100%;
                 width: auto;
             }
 
@@ -318,22 +331,16 @@ final class SE_License_SDK_Promotions {
             }
 
             .se-sdk-promo--details h3 {
-                color: inherit;
                 font-size: 30px;
                 margin: 12px 0;
             }
 
-            .se-sdk-promo--details p {
-                color: inherit;
-                font-size: 15px;
-            }
-
             .se-sdk-promo--column.se-sdk-promo--details {
-                flex: 0 0 50%;
+                flex: 1 0 auto;
             }
 
             .se-sdk-promo--column.se-sdk-promo--btn-container {
-                flex: 0 0 25%;
+                flex: 0 1 auto;
             }
 
             .se-sdk-promo--wrap .se-sdk-promo--btn {
@@ -343,19 +350,27 @@ final class SE_License_SDK_Promotions {
                 font-size: 15px;
                 font-weight: 700;
                 display: block;
-                color: inherit;
                 text-decoration: none;
                 max-width: 200px;
                 margin: 0 auto;
                 line-height: normal;
                 height: auto;
+                color: #FFFFFF;
                 box-shadow: 1px 2px 0 rgba(0, 0, 0, 0.1);
+                background: var( --se-sdk-primary-color );
+                border-color: var( --se-sdk-primary-color );
             }
 
             .se-sdk-promo--wrap .se-sdk-promo--btn:focus,
             .se-sdk-promo--wrap .se-sdk-promo--btn:hover,
             .se-sdk-promo--wrap .se-sdk-promo--btn:active {
-                box-shadow: inset 3px 4px 6px 0 rgba(1, 9, 12, 0.25);
+                color: #FFFFFF;
+                background: var( --se-sdk-primary-color );
+                border-color: var( --se-sdk-primary-color );
+                box-shadow:
+						inset 3px 4px 6px 0 rgba(1, 9, 12, 0.25),
+						0 0 0 1px #fff,
+						0 0 0 3px var(--se-sdk-primary-color);
             }
 
             .se-sdk-promo--wrap .se-sdk-promo--btn:active {
@@ -423,13 +438,15 @@ final class SE_License_SDK_Promotions {
 
 		$this->hidden_promotions[] = $promo;
 
+		// Hide for all users for 7 days.
 		set_transient(
 			$this->client->getHookName( 'hidden_promos' ),
 			array_unique( array_filter( $this->hidden_promotions ) ),
-			15 * DAY_IN_SECONDS
+			7 * DAY_IN_SECONDS
 		);
 
-//		update_user_option( get_current_user_id(), $this->client->getHookName( 'hidden_promos' ), array_unique( array_filter( $this->hidden_promotions ) ) );
+		// Hide for current user.
+		update_user_option( get_current_user_id(), $this->client->getHookName( 'hidden_promos' ), array_unique( array_filter( $this->hidden_promotions ) ) );
 
 		wp_send_json_success();
 	}

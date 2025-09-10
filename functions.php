@@ -43,8 +43,8 @@ if ( ! function_exists( 'se_license_init' ) ) {
 			'ticket_recipient'              => '', // ticket recipient email address.
 			// Promo settings.
 			'init_promotions'               => true,
-			'promo_cache_ttl'               => null,
-			'promo_source'                  => null,
+			'promo_cache_ttl'               => null, // Default 12 * HOUR_IN_SECONDS.
+			'promo_source'                  => null, // Default license server `promotions` route/endpoint.
 		] );
 
 		return SE_License_SDK::register( $args['package_file'], $args['package_name'], $args );

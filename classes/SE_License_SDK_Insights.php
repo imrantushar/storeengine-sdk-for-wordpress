@@ -69,7 +69,7 @@ final class SE_License_SDK_Insights {
 	 */
 	final public function __construct( SE_License_SDK_Client $client ) {
 		$this->client         = $client;
-		$this->ticketTemplate = __DIR__ . '/../views/support-ticket-email.php';
+		$this->ticketTemplate = __DIR__ . '/../views/insights-support-ticket-email.php';
 	}
 
 	/**
@@ -1011,33 +1011,46 @@ final class SE_License_SDK_Insights {
 		}
 	}
 
+	protected function get_se_url(): string {
+		/** @noinspection HttpUrlsUsage */
+		return 'http://storeengine.pro/' .
+		       '?utm_source=sdk-support-ticket' .
+		       '&utm_medium=email-footer' .
+		       '&utm_campaign=' . $this->client->getSlug() .
+		       '&utm_content=' . $this->client->getLicenseServer();
+	}
+
 	protected function getSupportTicketEmailTemplate( $replacements ) {
 		ob_start();
 		?>
 		<!doctype html>
-		<html lang="en">
+		<html <?php language_attributes(); ?>>
 		<head>
 			<meta charset="UTF-8">
 			<meta name="viewport" content="width=device-width, initial-scale=1">
-			<title>Support Ticket Submission</title>
+			<title><?php esc_html_e( 'Support Ticket Submission', 'storeengine-sdk' ); ?></title>
 		</head>
 		<body>
-		<div class="se-sdk-support-ticket-email-template">
-			<?php include $this->ticketTemplate; ?>
-			<div style="margin:10px auto">
-				<hr>
+			<div class="se-sdk-support-ticket-email-template">
+				<?php include $this->ticketTemplate; ?>
+				<div style="margin:10px auto">
+					<hr style="border-top-color:#008DFF"/>
+				</div>
+				<div style="margin:50px auto 10px auto">
+					<?php // Trick (h3 with &#8203 zero-width-space chars) for dashes before auto generated text version by wp_mail ?>
+					<h3 style="display:block;height:0;margin:0;opacity:0;visibility:hidden">&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;</h3>
+					<p style="font-size: 12px;">
+						<?php
+						printf(
+						// translators: %1$s. StoreEngine Site Link. %2$s. SDK version.
+							esc_html__( 'Message Processed via %1$s WordPress License SDK (v.%2$s)', 'storeengine-sdk' ),
+							'<a href="' . esc_url( $this->get_se_url() ) . '" target="_blank" style="color:#008DFF">' . esc_html__( 'StoreEngine', 'storeengine-sdk' ) . '</a>',
+							esc_html( $this->client->getVersion() )
+						);
+						?>
+					</p>
+				</div>
 			</div>
-			<div style="margin:50px auto 10px auto">
-				<p style="font-size: 12px;color: #009688"><?php
-					printf(
-					// translators: %1$s. StoreEngine Site Link. %2$s. SDK version.
-						esc_html__( 'Message Processed via %1$s WordPress License SDK (v.%2$s)', 'storeengine-sdk' ),
-						'<a href="http://storeengine.pro/" target="_blank">' . esc_html__( 'StoreEngine', 'storeengine-sdk' ) . '</a>',
-						esc_html( $this->client->getVersion() )
-					);
-				?></p>
-			</div>
-		</div>
 		</body>
 		</html>
 		<?php
@@ -1150,19 +1163,18 @@ final class SE_License_SDK_Insights {
 		$admin_user        = $this->client->get_admin_data();
 		$displayName       = $admin_user->first_name ? trim( $admin_user->first_name . ' ' . $admin_user->last_name ) : $admin_user->display_name;
 		$showSupportTicket = $this->ticketTemplate && $this->ticketRecipient;
-		$slug              = $this->client->getSlug();
 		?>
-		<div class="se-sdk-deactivation-modal"
+		<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> se-sdk-deactivation-modal"
 			 id="<?php echo esc_attr( $this->client->getSlug() ); ?>-se-sdk-deactivation-modal"
 			 aria-label="<?php /* translators: 1: Plugin Name */
 		     printf( esc_attr__( '&ldquo;%s&rdquo; Uninstall Confirmation', 'storeengine-sdk' ), esc_attr( $this->client->getPackageName() ) ); ?>"
-			 role="dialog" aria-modal="true">
+			 role="dialog" aria-modal="true" style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
 			<?php
 			if ( $showSupportTicket ) {
-				include __DIR__ . '/../views/support-ticket-form.php';
+				include __DIR__ . '/../views/insights-support-ticket-form.php';
 			}
 
-			include __DIR__ . '/../views/deactivation-reasons.php';
+			include __DIR__ . '/../views/insights-deactivation-reasons.php';
 			?>
 		</div>
 		<!--suppress CssUnusedSymbol, CssInvalidPseudoSelector, CssFloatPxLength -->
@@ -1453,7 +1465,7 @@ final class SE_License_SDK_Insights {
             }
 
             .se-sdk-deactivation-modal .mui label.focused {
-                color: <?php $this->client->printPrimaryColor(); ?>;
+                color: var( --se-sdk-primary-color );
             }
 
             p:not(.helper-text).mui-error, div:not(.helper-text).mui-error,
@@ -1504,7 +1516,7 @@ final class SE_License_SDK_Insights {
                 position: absolute;
                 transform: scaleX(0);
                 transition: transform 200ms cubic-bezier(0.0, 0, 0.2, 1) 0ms;
-                border-bottom: 2px solid <?php $this->client->printPrimaryColor(); ?>;
+                border-bottom: 2px solid var( --se-sdk-primary-color );
                 pointer-events: none;
             }
 
@@ -1599,8 +1611,8 @@ final class SE_License_SDK_Insights {
 
             .se-sdk-deactivation-modal .reason-input input[type="text"]:focus,
             .se-sdk-deactivation-modal .reason-input textarea:focus {
-                border-color: <?php $this->client->printPrimaryColor(); ?>;
-                box-shadow: 0 0 0 1px <?php $this->client->printPrimaryColor(); ?>;
+                border-color: var( --se-sdk-primary-color );
+                box-shadow: 0 0 0 1px var( --se-sdk-primary-color );
             }
 
             .se-sdk-deactivation-modal .mui .helper-text {
@@ -1633,7 +1645,7 @@ final class SE_License_SDK_Insights {
                 justify-content: center;
                 padding: 2px 14px;
                 border-radius: 4px;
-                background: <?php $this->client->printPrimaryColor(); ?>;
+                background: var( --se-sdk-primary-color );
                 color: #FFFFFF;
                 font-size: 14px;
                 font-weight: 500;
@@ -1642,10 +1654,10 @@ final class SE_License_SDK_Insights {
             }
 
             .se-sdk-deactivation-modal--open-ticket button {
-                color: <?php $this->client->printPrimaryColor(); ?>;
+                color: var( --se-sdk-primary-color );
                 gap: 8px;
                 border-radius: 9999px;
-                border: 1px solid <?php $this->client->printPrimaryColor(); ?>;
+                border: 1px solid var( --se-sdk-primary-color );
                 background: #FFFFFF;
                 margin-top: 12px;
                 padding: 9px 14px;
@@ -1653,15 +1665,15 @@ final class SE_License_SDK_Insights {
 
             .se-sdk-deactivation-modal .button:focus,
             .se-sdk-deactivation-modal .button:hover {
-                background: <?php $this->client->printPrimaryColor(); ?>;
-                border-color: <?php $this->client->printPrimaryColor(); ?>;
+                background: var( --se-sdk-primary-color );
+                border-color: var( --se-sdk-primary-color );
                 color: #fff;
 				box-shadow: inset 1px 1px 12px -1px #00000040;
 			}
 
             .se-sdk-deactivation-modal--open-ticket button:focus,
             .se-sdk-deactivation-modal .button:focus {
-                box-shadow: 0 0 0 1px #fff, 0 0 0 3px <?php $this->client->printPrimaryColor(); ?>;
+                box-shadow: 0 0 0 1px #fff, 0 0 0 3px var( --se-sdk-primary-color );
             }
 
             .se-sdk-deactivation-modal .button.button-link,
@@ -1684,7 +1696,7 @@ final class SE_License_SDK_Insights {
 			}
 
             .se-sdk-deactivation-modal .open-ticket-form svg path {
-				fill: <?php $this->client->printPrimaryColor(); ?>
+				fill: var( --se-sdk-primary-color );
 			}
 
             .se-sdk-deactivation-modal .button.disabled, .se-sdk-deactivation-modal button.disabled {
@@ -1698,7 +1710,7 @@ final class SE_License_SDK_Insights {
             }
 
             .se-sdk-deactivation-modal input[type=radio]:checked::before {
-                background-color: <?php $this->client->printPrimaryColor(); ?>;
+                background-color: var( --se-sdk-primary-color );
             }
 
             .se-sdk-deactivation-modal input[type=checkbox]:checked::before {
@@ -1707,7 +1719,7 @@ final class SE_License_SDK_Insights {
 
             .se-sdk-deactivation-modal input[type=checkbox],
             .se-sdk-deactivation-modal input[type=radio] {
-                border-color: <?php $this->client->printPrimaryColor(); ?>;
+                border-color: var( --se-sdk-primary-color );
             }
 
             /*.se-sdk-deactivation-modal .se-sdk-row input, .se-sdk-deactivation-modal .se-sdk-row textarea { width: calc( 100% - 10px ); margin: 0 5px; display: block; vertical-align: middle; box-sizing: border-box; float: left; }*/
