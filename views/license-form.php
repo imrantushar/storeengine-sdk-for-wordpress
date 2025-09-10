@@ -34,7 +34,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 					</div>
 				<?php } ?>
 				<div class="se-sdk-license-form-wrapper">
-					<form method="post" action="<?php $this->formActionUrl(); ?>" spellcheck="false" autocomplete="off">
+					<form method="post" id="<?php echo esc_attr( $this->client->getSlug() . '-license-form' ); ?>" action="<?php $this->formActionUrl(); ?>" spellcheck="false" autocomplete="off">
 						<?php wp_nonce_field( $this->data_key ); ?>
 						<input type="hidden" name="<?php echo esc_attr( $this->data_key ); ?>[_action]" value="<?php echo esc_attr( $action ); ?>">
 						<div class="se-sdk-license-fields">
@@ -68,7 +68,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 								printf(
 										// translators: %s. Purchase link tag
 									esc_html__( 'Don’t have license key? %s', 'storeengine-sdk' ),
-									'<a href="' . esc_url( $this->purchase_url ) . '">' . esc_html__( 'Purchase one here', 'storeengine-sdk' ) . '</a>'
+									'<a href="' . esc_url( add_query_arg( [
+										'utm_source'   => 'storeengine-sdk',
+										'utm_medium'   => 'license-form',
+										'utm_campaign' => 'purchase-prompt',
+										'utm_content'  => esc_html__( 'Purchase one here', 'storeengine-sdk' ),
+									], $this->purchase_url ) ) . '" target="_blank">' . esc_html__( 'Purchase one here', 'storeengine-sdk' ) . '</a>'
 								);
 								?>
 							</p>

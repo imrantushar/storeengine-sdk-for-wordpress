@@ -663,7 +663,7 @@ final class SE_License_SDK_License {
 		$check_key = $this->client->getSlug() . '-check-license';
 		if ( isset( $_GET[ $check_key ] ) && wp_verify_nonce( sanitize_text_field( $_GET[ $check_key ] ), $this->client->getSlug() ) ) {
 			$this->check_license_status();
-			wp_safe_redirect( $this->get_page_url() );
+			wp_safe_redirect( $this->get_page_url() . '#' . $this->client->getSlug() . '-license-form' );
 			die();
 		}
 
