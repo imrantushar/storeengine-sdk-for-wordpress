@@ -185,7 +185,7 @@ final class SE_License_SDK_Promotions {
 	private function get_promos(): array {
 		$promos = get_transient( $this->client->getHookName( 'cached_promos' ) );
 
-		if ( false === $promos ) {
+		if ( false === $promos || ! is_array( $promos ) ) {
 			// Fetch promotions data from json source.
 			$args = [
 				'timeout'  => 15, // phpcs:ignore WordPressVIPMinimum.Performance.RemoteRequestTimeout.timeout_timeout
