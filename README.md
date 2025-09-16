@@ -3,6 +3,8 @@
 This *StoreEngine License Management Client SDK for WordPress* is a lightweight, developer-friendly toolkit that helps
 WordPress plugin and theme authors securely manage licensing, updates, and insights for their premium products.
 
+## Features
+
 By integrating this SDK, you can:
 
 1.	Automate license activation and deactivation for customers who purchase through your own eCommerce site powered by the StoreEngine plugin.
@@ -78,7 +80,7 @@ This function should be called as early as possible within the WordPress load or
 add_action( 'plugins_loaded', function () {
 	se_license_init( [
 		'package_file'        => __FILE__,
-		'package_name'        => __( 'Your Amazing Plugin', 'textdomain'),
+		'package_name'        => __( 'Your Amazing Plugin', 'textdomain' ),
 		'product_id'          => 27870,
 		'is_free'             => false,
 		'slug'                => 'your-amazing-plugin',
@@ -87,10 +89,12 @@ add_action( 'plugins_loaded', function () {
 		'package_version'     => '1.0.0',
 		'license_server'      => 'https://your-website.com',
 		'product_logo'        => plugins_url( 'assets/images/logo.svg', __FILE__ ),
-		'store_dashboard_url' => 'https://your-website.com/store-dashboard/license-keys/',
+		'store_dashboard_url' => 'https://your-website.com/dashboard/license-keys/',
 		'terms_url'           => 'https://your-website.com/terms-and-conditions/',
 		'privacy_policy_url'  => 'https://your-website.com/privacy-policy/',
 		'ticket_recipient'    => 'support@your-website.com',
+		'first_install_time'  => get_option( 'your-amazing-plugin-first-installation-time' ),
+		'optin_notice_delay'  => 3 * DAY_IN_SECONDS, # Optional, Default is 3 days from installation.
 	] );
 } );
 ```
