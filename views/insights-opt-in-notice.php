@@ -1,6 +1,5 @@
 <?php
 /**
- * @var string $trigger
  * @var SE_License_SDK_Insights $this
  * @var array $what_tracked
  * @var string $terms_policy_text
@@ -17,31 +16,30 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<?php } ?>
 		<div class="se-sdk-insights-notice-data">
 			<div class="se-sdk-insights-notice--message">
-				<?php echo wp_kses_post( wpautop( $this->notice ) ); ?>
+				<?php echo wp_kses_post( $this->notice ); ?>
 			</div>
-			<ul class="description hide-if-js">
-				<?php foreach ( $what_tracked as $key => $item ) { ?>
-					<li class="trac-<?php echo esc_attr( $key ); ?>">✅ <?php echo esc_html( $item ); ?></li>
-				<?php } ?>
-			</ul>
+			<?php if ( $what_tracked ) { ?>
+			<details>
+				<summary><?php esc_html_e( 'What we collect?', 'storeengine-sdk' ); ?></summary>
+				<div class="description">
+					<ul>
+						<?php foreach ( $what_tracked as $key => $item ) { ?>
+							<li class="trac-<?php echo esc_attr( $key ); ?>">✅ <?php echo esc_html( $item ); ?></li>
+						<?php } ?>
+					</ul>
+				</div>
+			</details>
+			<?php } ?>
 			<div class="se-sdk-insights--opt-in-submit">
+                <?php if ( $terms_policy_text ) { ?>
+					<p class="se-sdk-insights-notice--des"><?php echo wp_kses_post( $terms_policy_text ); ?></p>
+				<?php } ?>
 				<div class="buttons">
 					<a href="<?php echo esc_url( $this->get_opt_in_url() ); ?>" class="button button-primary"><?php esc_html_e( 'Yes, keep me updated', 'storeengine-sdk' ); ?></a>
 					<a href="<?php echo esc_url( $this->get_opt_out_url() ); ?>" class="button button-secondary"><?php esc_html_e( 'No thanks', 'storeengine-sdk' ); ?></a>
 				</div>
-				<?php if ( $terms_policy_text ) { ?>
-					<p class="se-sdk-insights-notice--des"><?php echo wp_kses_post( $terms_policy_text ); ?></p>
-				<?php } ?>
 			</div>
 		</div>
-		<script>
-			( function( $ ) {
-				$( '.<?php echo esc_attr( $trigger ); ?>' ).on( 'click', function( e ) {
-					e.preventDefault();
-					$( this ).closest( '.se-sdk-insights-notice' ).find( '.description' ).slideToggle();
-				} );
-			} )( jQuery );
-		</script>
 	</div>
 	<style>
         .se-sdk-insights-notice {
@@ -74,11 +72,21 @@ if ( ! defined( 'ABSPATH' ) ) {
             }
         }
 
+        .se-sdk-insights-notice details summary,
         .se-sdk-insights-notice a,
         .se-sdk-insights-notice .highlight {
             background-color: transparent;
             color: var( --se-sdk-primary-color );
         }
+
+        .se-sdk-insights-notice details {
+            margin-bottom: 16px;
+		}
+        .se-sdk-insights-notice details summary {
+			cursor: pointer;
+			text-decoration: underline;
+            font-size: 14px;
+		}
 
         .se-sdk-insights-notice a:focus {
             box-shadow: 0 0 0 2px var( --se-sdk-primary-color );
@@ -90,7 +98,7 @@ if ( ! defined( 'ABSPATH' ) ) {
             font-style: normal;
             font-weight: 600;
             line-height: 30px;
-            margin-bottom: 8px;
+            margin: 0 0 8px;
         }
 
         .se-sdk-insights-notice.updated p {
@@ -116,6 +124,9 @@ if ( ! defined( 'ABSPATH' ) ) {
             line-height: 20px;
         }
 
+        .se-sdk-insights-notice .description ul {
+			list-style: none;
+		}
         .se-sdk-insights-notice .description li {
             margin-bottom: 8px;
         }
@@ -126,7 +137,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
         .se-sdk-insights--opt-in-submit {
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            gap: 16px;
             margin: 0;
             padding: 0
         }

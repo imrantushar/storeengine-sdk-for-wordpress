@@ -291,7 +291,7 @@ final class SE_License_SDK_License {
 		if ( ! $this->is_license_page && ! $this->is_valid() && ! $this->is_updating_license() ) {
 			?>
 			<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> se-sdk-license-notice notice updated" style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
-				<span>
+				<p>
 					<?php
 					printf(
 					/* translators: 1: This plugin name, 2: Activation Page URL, 3: This Plugin Name */
@@ -301,7 +301,7 @@ final class SE_License_SDK_License {
 						'<strong>' . esc_attr( $this->client->getPackageName() ) . '</strong>'
 					);
 					?>
-				</span>
+				</p>
 			</div>
 			<style>
                 .se-sdk-license-notice {
@@ -312,11 +312,13 @@ final class SE_License_SDK_License {
                     border-left-width: 4px !important;
                 }
 
-                .se-sdk-license-notice span {
+                .se-sdk-license-notice p {
                     font-size: 14px;
                     font-style: normal;
                     font-weight: 600;
                     line-height: 20px;
+					margin :0 !important;
+					padding : 0 !important;
                 }
 
                 .se-sdk-license-notice a,
@@ -839,7 +841,8 @@ final class SE_License_SDK_License {
                 gap: 24px;
                 border-radius: 4px;
                 background: #FFF;
-                box-shadow: 0 0.5px 2px 0 rgba(16, 24, 40, 0.15);
+				max-width: 1200px;
+    			margin: auto;
             }
 
             .se-sdk-license-title {
@@ -859,7 +862,6 @@ final class SE_License_SDK_License {
                 width: auto;
                 max-width: 160px;
                 height: 30px;
-                /*fill: #0082bf;*/
                 fill: var( --se-sdk-primary-color );
             }
 
@@ -873,6 +875,8 @@ final class SE_License_SDK_License {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
+				padding : 40px 60px;
+				line-height: 1.5;
             }
 
 			.se-sdk-license-details-contents {
@@ -901,7 +905,7 @@ final class SE_License_SDK_License {
                 gap: 24px;
                 border-radius: 9999px;
                 border: 1px solid #CBD1D7;
-                margin-top: 24px;
+                margin-top: 10px;
             }
 
             .se-sdk-license-form-wrapper {
@@ -983,6 +987,13 @@ final class SE_License_SDK_License {
                 margin-left: 15px
             }
 
+			.input-group-inline {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 16px;
+			}
+
             .se-sdk-license-fields .activate-button,
             .se-sdk-license-fields .dashboard-button,
             .se-sdk-license-fields .deactivate-button {
@@ -1001,6 +1012,7 @@ final class SE_License_SDK_License {
                 display: flex;
                 justify-content: center;
                 align-items: center;
+				gap : 8px;
             }
 
             .se-sdk-license-fields button.deactivate-button {
@@ -1078,6 +1090,9 @@ final class SE_License_SDK_License {
                     display: block;
                     padding: 16px 24px 24px 24px;
                 }
+				.se-sdk-license-details {
+					padding : 20px 30px;
+				}
 
                 .se-sdk-license-form-wrapper {
                     max-width: 425px;

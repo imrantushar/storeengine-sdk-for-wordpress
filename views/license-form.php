@@ -52,8 +52,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 								</div>
 							</div>
 							<!-- /.se-sdk-license-fields .input-group -->
-							<div class="input-group-inline" style="display: flex; align-items: center; justify-content: center; gap: 16px;">
-								<button type="submit" name="<?php echo esc_attr( $this->data_key ); ?>[submit]" class="<?php echo esc_attr( $action ); ?>-button"><?php echo esc_html( $submit_label ); ?></button>
+							<div class="input-group-inline">
+								<button type="submit" name="<?php echo esc_attr( $this->data_key ); ?>[submit]" class="<?php echo esc_attr( $action ); ?>-button">
+									<?php if( 'activate' === $action ) { ?>
+										<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+											<path d="M17.5 9.99992C17.5 5.85778 14.1421 2.49992 10 2.49992C5.85787 2.49992 2.50001 5.85778 2.50001 9.99992C2.50001 14.1421 5.85787 17.4999 10 17.4999C14.1421 17.4999 17.5 14.1421 17.5 9.99992ZM11.9108 7.74406C12.2363 7.41862 12.7638 7.41862 13.0892 7.74406C13.4146 8.0695 13.4146 8.59701 13.0892 8.92244L9.75587 12.2558C9.43043 12.5812 8.90292 12.5812 8.57748 12.2558L6.91082 10.5891C6.58538 10.2637 6.58538 9.73616 6.91082 9.41072C7.23625 9.08529 7.76377 9.08529 8.0892 9.41072L9.16668 10.4882L11.9108 7.74406ZM19.1667 9.99992C19.1667 15.0625 15.0626 19.1666 10 19.1666C4.9374 19.1666 0.833344 15.0625 0.833344 9.99992C0.833344 4.93731 4.9374 0.833252 10 0.833252C15.0626 0.833252 19.1667 4.93731 19.1667 9.99992Z" fill="#F6F7F8"/>
+										</svg>	
+									<?php } ?>
+									<span><?php echo esc_html( $submit_label ); ?></span>
+								</button>
 								<?php if ( $this->manage_license_url ) { ?>
 									<a href="<?php echo esc_url( $this->manage_license_url ); ?>" class="dashboard-button" rel="noopener" target="_blank"><?php esc_html_e( 'Manage License', 'storeengine-sdk' ); ?></a>
 								<?php } ?>
@@ -82,8 +89,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 					<?php if ( 'active' === $status ) { ?>
 						<div class="active-license-info">
-							<div class="single-license-info-group">
-								<div class="single-license-info license-status">
+							<div class="single-license-info license-status">
 									<h3><?php esc_html_e( 'Status:', 'storeengine-sdk' ); ?></h3>
 									<p class="<?php echo esc_attr( $status ); ?>"><?php echo esc_html( $status_label ); ?></p>
 								</div>
@@ -99,7 +105,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 										</p>
 									</div>
 								<?php } ?>
-							</div>
 							<div class="single-license-info license-expires">
 								<h3><?php esc_html_e( 'Expires: ', 'storeengine-sdk' ); ?></h3>
 								<?php $this->render_license_expire_datetime(); ?>

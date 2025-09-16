@@ -33,6 +33,9 @@ if ( ! function_exists( 'se_license_init' ) ) {
 			],
 			// Insight settings
 			'init_insights'                 => true,
+			'should_show_optin'             => true,
+			'first_install_time'            => null,
+			'optin_notice_delay'            => null, // Default 3 * DAY_IN_SECONDS
 			'data_being_collected'          => [],
 			'terms_url'                     => '',
 			'privacy_policy_url'            => '',

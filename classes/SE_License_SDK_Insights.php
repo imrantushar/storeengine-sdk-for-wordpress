@@ -16,7 +16,16 @@ final class SE_License_SDK_Insights {
 	 *
 	 * @var boolean
 	 */
-	protected $show_notice = true;
+	protected $should_show_optin = true;
+
+	protected $first_install_time = null;
+
+	/**
+	 * Delay before OptIn Notice being shown to admin user.
+	 * Delay will be calculated relative to first_install_time.
+	 * @var float|int
+	 */
+	protected $optin_notice_delay = 3 * DAY_IN_SECONDS;
 
 	/**
 	 * If extra data needs to be sent
@@ -77,8 +86,37 @@ final class SE_License_SDK_Insights {
 	 *
 	 * @return SE_License_SDK_Insights
 	 */
-	public function hide_notice() {
-		$this->show_notice = false;
+	public function hide_optin_notice() {
+		$this->should_show_optin = false;
+
+		return $this;
+	}
+
+	/**
+	 * Set first installation time of the package.
+	 *
+	 * @param int $time GMT/UTC-0 Unix Timestamp
+	 *
+	 * @return SE_License_SDK_Insights
+	 */
+	public function set_first_install_time( int $time ) {
+		if ( $time ) {
+			$this->first_install_time = absint( $time );
+		}
+
+		return $this;
+	}
+
+	/**
+	 * Set OptIn notice delay
+	 * @param int $delay delay time in seconds.
+	 *
+	 * @return SE_License_SDK_Insights
+	 */
+	public function set_optin_notice_delay( int $delay ) {
+		if ( $delay ) {
+			$this->optin_notice_delay = absint( $delay );
+		}
 
 		return $this;
 	}
@@ -391,11 +429,7 @@ final class SE_License_SDK_Insights {
 
 		// If hide_notice is set (optIn notice is hidden by default), then tracking is also disable.
 		// But uninstallation tracking is active.
-		if ( ! $this->show_notice ) {
-			return false;
-		}
-
-		return 'yes' == $this->client->get_option( 'allow_tracking', 'no' );
+		return 'yes' === $this->client->get_option( 'allow_tracking', 'no' );
 	}
 
 	/**
@@ -412,7 +446,7 @@ final class SE_License_SDK_Insights {
 	 *
 	 * @return boolean
 	 */
-	private function __notice_dismissed(): bool {
+	private function is_notice_dismissed(): bool {
 		return 'hide' === $this->client->get_option( 'tracking_notice', 'show' );
 	}
 
@@ -421,7 +455,7 @@ final class SE_License_SDK_Insights {
 	 *
 	 * @return void
 	 */
-	private function __schedule_event() {
+	private function maybe_schedule_event() {
 		$hook_name = $this->client->getSlug() . '_tracker_send_event';
 		if ( ! wp_next_scheduled( $hook_name ) ) {
 			wp_schedule_event( time(), 'weekly', $hook_name );
@@ -435,93 +469,6 @@ final class SE_License_SDK_Insights {
 	 */
 	private function __clear_schedule_event() {
 		wp_clear_scheduled_hook( $this->client->getSlug() . '_tracker_send_event' );
-	}
-
-	/**
-	 * Display the admin notice to users that have not opted-in or out
-	 *
-	 * @return void
-	 */
-	public function admin_notice() {
-
-		if ( $this->client->is_local_request() ) {
-			return;
-		}
-
-		if ( $this->__notice_dismissed() ) {
-			return;
-		}
-
-		if ( $this->is_tracking_allowed() ) {
-			return;
-		}
-
-		if ( ! current_user_can( 'manage_options' ) ) {
-			return;
-		}
-
-		$what_tracked = $this->get_data_collection_list();
-
-		// Don't show tracking if a local server.
-
-		if ( ! empty( $what_tracked ) ) {
-			$trigger           = $this->client->getHookName('insights-collection-list');
-			$terms             = '';
-			$privacy_policy    = '';
-			$what_we_collect   = sprintf(
-				'<a class="%s" href="#">%s</a>',
-				esc_attr( $trigger ),
-				esc_html__( 'What we collect?', 'storeengine-sdk' )
-			);
-
-			$terms_policy_text = '';
-
-			if ( $this->privacy_policy_url ) {
-				$privacy_policy = sprintf(
-					'<a href="%s" target="_blank" rel="noopener">%s</a>',
-					esc_url( $this->privacy_policy_url ),
-					esc_html__( 'Privacy Policy', 'storeengine-sdk' )
-				);
-			}
-
-			if ( $this->terms_url ) {
-				$terms = sprintf(
-					'<a href="%1$s" target="_blank" rel="noopener">%2$s</a>',
-					esc_url( $this->terms_url ),
-					esc_html__( 'Terms of Services', 'storeengine-sdk' )
-				);
-			}
-
-			if ( $terms || $privacy_policy ) {
-				if ( $terms && $privacy_policy ) {
-					$terms_policy_text = sprintf(
-						/* translators: 1: Privacy Policy Link, 2: Terms Links */
-						__( 'Please read our %1$s and %2$s', 'storeengine-sdk' ),
-						$privacy_policy,
-						$terms
-					);
-				} else {
-					/* translators: 1: Privacy Policy or Terms Link */
-					$terms_policy_text = sprintf( __( 'Please read our %1$s', 'storeengine-sdk' ), $privacy_policy || $terms );
-				}
-			}
-
-			if ( empty( $this->notice ) || ! str_contains( $this->notice, '%1$s' ) || ! str_contains( $this->notice, '%2$s' ) ) {
-				/* translators: 1: plugin name. */
-				$this->notice = __( '<span class="se-sdk-insights-notice--title">Help Us Improve & Get Exclusive Perks!</span>', 'storeengine-sdk' );
-				/* translators: 1: plugin name, 2: what we collect button. */
-				//. What you’ll get if you opt in?
-				$this->notice .= __( '<p class="se-sdk-insights-notice--des">We’d love to stay in touch and share useful updates, tips, and special offers to help you get the most from %1$s. Your privacy is our priority. No spam — ever. <small>%2$s</small></p>', 'storeengine-sdk' );
-			}
-
-			$this->notice = sprintf(
-				$this->notice,
-				'<strong class="highlight">' . esc_html( $this->client->getPackageName() ) . '</strong>',
-				$what_we_collect
-			);
-
-			include __DIR__ . '/../views/insights-opt-in-notice.php';
-		}
 	}
 
 	/**
@@ -546,13 +493,79 @@ final class SE_License_SDK_Insights {
 		] );
 	}
 
+	public function maybe_show_optin_notice(): bool {
+		// Don't show if not configured properly.
+		if ( ! $this->should_show_optin || ! $this->first_install_time || ! $this->optin_notice_delay ) {
+			return false;
+		}
+
+		// Don't show if not admin.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return false;
+		}
+
+		// Don't show tracking if a local server or already dismissed or already allowed.
+		if ( $this->client->is_local_request() || $this->is_notice_dismissed() || $this->is_tracking_allowed() ) {
+			return false;
+		}
+
+		// Don't show until configured delay after first installation time.
+		return current_time( 'timestamp', true ) >= $this->first_install_time + $this->optin_notice_delay;
+	}
+
+	/**
+	 * Display the admin notice to users that have not opted-in or out
+	 *
+	 * @return void
+	 */
+	public function admin_notice() {
+		$what_tracked      = $this->get_data_collection_list();
+		$terms             = '';
+		$privacy_policy    = '';
+		$terms_policy_text = '';
+
+		if ( $this->privacy_policy_url ) {
+			$privacy_policy = '<a href="' . esc_url( $this->privacy_policy_url ) . '" target="_blank" rel="noopener">' . esc_html__( 'Privacy Policy', 'storeengine-sdk' ) . '</a>';
+		}
+
+		if ( $this->terms_url ) {
+			$terms = '<a href="' . esc_url( $this->terms_url ) . '" target="_blank" rel="noopener">' . esc_html__( 'Terms of Services', 'storeengine-sdk' ) . '</a>';
+		}
+
+		if ( $terms || $privacy_policy ) {
+			if ( $terms && $privacy_policy ) {
+				$terms_policy_text = sprintf(
+				/* translators: 1: Privacy Policy Link, 2: Terms Links */
+					__( 'Please read our %1$s and %2$s', 'storeengine-sdk' ),
+					$privacy_policy,
+					$terms
+				);
+			} else {
+				/* translators: 1: Privacy Policy or Terms Link */
+				$terms_policy_text = sprintf( __( 'Please read our %1$s', 'storeengine-sdk' ), ! $privacy_policy ? $terms : $privacy_policy );
+			}
+		}
+
+		if ( empty( $this->notice ) ) {
+			/* translators: 1: plugin name. */
+			$this->notice = __( '<h3 class="se-sdk-insights-notice--title">Help Us Improve & Get Exclusive Perks!</h3>', 'storeengine-sdk' );
+			/* translators: 1: plugin name, 2: what we collect button. */
+			//. What you’ll get if you opt in?
+			$this->notice .= __( '<p class="se-sdk-insights-notice--des">We’d love to stay in touch and share useful updates, tips, and special offers to help you get the most from %1$s. Your privacy is our priority. No spam — ever.</p>', 'storeengine-sdk' );
+		}
+
+		$this->notice = sprintf( $this->notice, '<strong class="highlight">' . esc_html( $this->client->getPackageName() ) . '</strong>' );
+
+		include __DIR__ . '/../views/insights-opt-in-notice.php';
+	}
+
 	/**
 	 * handle the optIn/optOut
 	 *
 	 * @return void
 	 */
 	public function handle_optIn_optOut() {
-		if ( $this->show_notice ) {
+		if ( $this->maybe_show_optin_notice() ) {
 			// Tracking notice.
 			add_action( 'admin_notices', [ $this, 'admin_notice' ] );
 		}
@@ -594,7 +607,7 @@ final class SE_License_SDK_Insights {
 		$this->client->set_option( 'allow_tracking', 'yes' );
 		$this->client->set_option( 'tracking_notice', 'hide' );
 		$this->__clear_schedule_event();
-		$this->__schedule_event();
+		$this->maybe_schedule_event();
 		$this->client->request( [ 'body' => [ 'opt_in' => true ], 'route' => 'opt-in' ] );
 		$this->send_tracking_data( $override_last_send );
 	}
@@ -1207,7 +1220,7 @@ final class SE_License_SDK_Insights {
             }
 
             .se-sdk-deactivation-modal--wrap {
-                width: 475px;
+                width: 550px;
                 margin: auto;
                 background: #fff;
                 position: absolute;
@@ -1329,7 +1342,7 @@ final class SE_License_SDK_Insights {
             }
 
             .se-sdk-deactivation-modal--body {
-                padding: 32px;
+                padding: 32px 32px 12px 32px;
                 position: relative;
                 display: block;
                 width: 100%;
@@ -1352,7 +1365,7 @@ final class SE_License_SDK_Insights {
                 margin: 0;
                 display: flex;
                 flex-direction: column;
-                gap: 10px
+                gap: 12px
             }
 
             dd, li {
@@ -1366,8 +1379,9 @@ final class SE_License_SDK_Insights {
 
             .se-sdk-deactivation-modal--footer {
                 display: flex;
+				border-top: 1px solid #eee;
                 justify-content: space-between;
-                padding: 12px 20px;
+                padding: 12px 32px 32px 32px;
                 position: relative;
                 width: 100%;
             }

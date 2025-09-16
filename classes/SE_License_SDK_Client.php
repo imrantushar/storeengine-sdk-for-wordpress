@@ -279,16 +279,34 @@ final class SE_License_SDK_Client {
 			       ->set_support_response( $args['support_ticket_response'] ?? '' )
 			       ->set_support_error_response( $args['support_ticket_error_response'] ?? '' )
 			       ->set_ticket_template( $args['ticket_template'] ?? '' )
-			       ->set_ticket_recipient( $args['ticket_recipient'] ?? '' )
-			       ->init();
+			       ->set_ticket_recipient( $args['ticket_recipient'] ?? '' );
+
+			if ( array_key_exists( 'should_show_optin', $args ) && ! $args['should_show_optin'] ) {
+				$client->insights()->hide_optin_notice();
+			}
+
+			if ( ! empty( $args['first_install_time'] ) ) {
+				$client->insights()->set_first_install_time( $args['first_install_time'] );
+			}
+
+			if ( ! empty( $args['optin_notice_delay'] ) ) {
+				$client->insights()->set_optin_notice_delay( $args['optin_notice_delay'] );
+			}
+
+			if ( array_key_exists( 'should_show_optin', $args ) && ! $args['should_show_optin'] ) {
+				$client->insights()->hide_optin_notice();
+			}
+
+			// Init insights.
+			$client->insights()->init();
 		}
 
 		if ( ! empty( $args['init_promotions'] ) ) {
 			// Init promos.
 			$client->promotions()
 			       ->set_source( $args['promo_source'] ?? null )
-			       ->set_cache_ttl( $args['promo_cache_ttl'] ?? null )
-			       ->init();
+			       ->set_cache_ttl( $args['promo_cache_ttl'] ?? null );
+			$client->promotions()->init();
 		}
 
 		if ( $client->isPro() ) {
