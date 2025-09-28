@@ -99,6 +99,35 @@ add_action( 'plugins_loaded', function () {
 } );
 ```
 
+### Deploy Free Plugins
+
+Free WordPress plugin can be deployed with StoreEngine, and SDK will now can auto-update the plugin directly from the deployed server.
+This can be achieved by setting `is_free` to `false` and setting `use_update` to true. Updater will fetch package information without any active license.
+
+```php
+add_action( 'plugins_loaded', function () {
+	se_license_init( [
+		'package_file'        => __FILE__,
+		'package_name'        => __( 'Your Amazing Plugin', 'textdomain' ),
+		'product_id'          => 27870,
+		'is_free'             => true,
+		'use_update'          => true,
+		'slug'                => 'your-amazing-plugin',
+		'basename'            => plugin_basename( __FILE__ ),
+		'package_type'        => 'plugin',
+		'package_version'     => '1.0.0',
+		'license_server'      => 'https://your-website.com',
+		'product_logo'        => plugins_url( 'assets/images/logo.svg', __FILE__ ),
+		'store_dashboard_url' => 'https://your-website.com/dashboard/license-keys/',
+		'terms_url'           => 'https://your-website.com/terms-and-conditions/',
+		'privacy_policy_url'  => 'https://your-website.com/privacy-policy/',
+		'ticket_recipient'    => 'support@your-website.com',
+		'first_install_time'  => get_option( 'your-amazing-plugin-first-installation-time' ),
+		'optin_notice_delay'  => 3 * DAY_IN_SECONDS, # Optional, Default is 3 days from installation.
+	] );
+} );
+```
+
 ### How it works
 - Automatic versioning & failsafe loading: If multiple plugins or themes bundle this SDK, WordPress will always load the
 latest version automatically, preventing conflicts or duplicate class errors.
