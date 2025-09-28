@@ -37,9 +37,8 @@ final class SE_License_SDK_Updater {
 	 * @param SE_License_SDK_Client $client The Client.
 	 * @param SE_License_SDK_License $license The license.
 	 */
-	public function __construct( SE_License_SDK_Client $client, SE_License_SDK_License $license ) {
+	public function __construct( SE_License_SDK_Client $client ) {
 		$this->client    = $client;
-		$this->license   = $license;
 		$this->cache_key = $this->client->getHookName( 'version_info' );
 	}
 
@@ -116,7 +115,7 @@ final class SE_License_SDK_Updater {
 				unset( $project_info->sections );
 				$transient_data->response[ $this->client->getBasename() ] = $project_info;
 			}
-			//$transient_data->last_checked                            = time();
+			//$transient_data->last_checked = time();
 			$transient_data->checked[ $this->client->getBasename() ] = $this->client->getProjectVersion();
 		}
 
@@ -176,7 +175,7 @@ final class SE_License_SDK_Updater {
 
 		$info = get_transient( $this->cache_key . $which );
 
-		if ( ! $info && ! isset( $info->name ) ) {
+		if ( ! $info || ! isset( $info->name ) ) {
 			return false; // Cache is expired.
 		}
 
@@ -219,12 +218,12 @@ final class SE_License_SDK_Updater {
 	 *
 	 * @return bool|array
 	 */
-	private function get_information( string $action ) {
+	private function get_information( string $action, bool $force = false ) {
 
 		// cache first.
 		$project_info = $this->get_cached_version_info( $action );
 
-		if ( false === $project_info ) {
+		if ( false === $project_info || $force ) {
 			$project_info = $this->get_updates( $action );
 
 			$this->set_cached_version_info( $project_info, $action );
@@ -234,12 +233,28 @@ final class SE_License_SDK_Updater {
 	}
 
 	private function get_updates( $action ) {
-		$response = $this->license->check_update();
+		// Updater doesn't need to care for license.
+		// License key will be added to the request body by client (if available).
+		// Server will provide update information without package/download link if license not available.
+		// For free version response will contain the package/download link.
+
+		// Update -> check-update,
+		$response = $this->client->request( [
+			'body'     => $this->client->get_admin_info(),
+			'route'    => 'check-update',
+			'blocking' => true
+		] );
 
 		if ( isset( $response['success'] ) && $response['success'] ) {
 			$data = $response['data'];
+
 			if ( 'plugin_update' !== $action ) {
-				$response = $this->license->get_information();
+				// information -> package-info
+				$response = $this->client->request( [
+					'body'     => $this->client->get_admin_info(),
+					'route'    => 'package-info',
+					'blocking' => true
+				] );
 				if ( isset( $response['success'] ) && $response['success'] ) {
 					$data = array_merge( $data, $response['data'] );
 				}
@@ -254,7 +269,7 @@ final class SE_License_SDK_Updater {
 			 *
 			 * @param array $data
 			 */
-			$data = apply_filters( $this->client->getHookName( 'update_info' ), $data, $action );
+			$data = apply_filters( $this->client->getHookName( $action ), $data, $action );
 
 			return $this->__children_to_array( (object) $data, [
 				'icons',
@@ -280,7 +295,7 @@ final class SE_License_SDK_Updater {
 	 *
 	 * @return object $data
 	 */
-	public function plugins_api_filter( $data, string $action = '', ?object $args = null ) {
+	public function plugins_api_filter( $data, string $action = '', $args = null ) {
 		if ( 'plugin_information' !== $action ) {
 			return $data;
 		}
@@ -292,7 +307,7 @@ final class SE_License_SDK_Updater {
 		return $this->get_information( 'plugin_information' );
 	}
 
-	public function themes_api_filter( $data, string $action = '', ?object $args = null ) {
+	public function themes_api_filter( $data, string $action = '', $args = null ) {
 		if ( 'theme_information' !== $action ) {
 			return $data;
 		}
@@ -308,7 +323,7 @@ final class SE_License_SDK_Updater {
 	 * Typecast child element to array or object
 	 * Utility method
 	 *
-	 * @param array|object $input the array or object to convert/typecast.
+	 * @param array|stdClass $input the array or object to convert/typecast.
 	 * @param array $children children array.
 	 *
 	 * @return array|object

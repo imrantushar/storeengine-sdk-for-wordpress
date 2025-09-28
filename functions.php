@@ -10,6 +10,7 @@ if ( ! function_exists( 'se_license_init' ) ) {
 			'package_name'                  => '',
 			'product_id'                    => 0,
 			'is_free'                       => null,
+			'use_update'                    => null, // is_org_compliant
 			'slug'                          => null,
 			'basename'                      => null,
 			'package_type'                  => null,

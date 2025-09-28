@@ -347,7 +347,8 @@ final class SE_License_SDK_License {
 		$age_url = $this->get_page_url();
 
 		if ( ! empty( $age_url ) ) {
-			array_unshift( $links, '<a href="' . esc_url( $age_url ) . '">' . esc_html__( 'Activate License', 'storeengine-sdk' ) . '</a>' );
+			$label = $this->is_valid() ? __( 'Manage License', 'storeengine-sdk' ) : __( 'Activate License', 'storeengine-sdk' );
+			array_unshift( $links, '<a href="' . esc_url( $age_url ) . '">' . esc_html( $label ) . '</a>' );
 		}
 
 		return $links;
@@ -366,6 +367,8 @@ final class SE_License_SDK_License {
 	 * Check Plugin Update.
 	 *
 	 * @return array
+	 *
+	 * @deprecated Updater has it's own reqest method.
 	 */
 	public function check_update(): array {
 		return $this->request( 'update', $this->license );
@@ -416,6 +419,8 @@ final class SE_License_SDK_License {
 	 *         }
 	 *     }
 	 * }
+	 *
+	 * @deprecated kept for documentation.
 	 */
 	public function get_information(): array {
 		return $this->request( 'information', $this->license );
@@ -476,51 +481,11 @@ final class SE_License_SDK_License {
 			];
 		}
 
-		$response = $this->client->request( [
+		return $this->client->request( [
 			'body'     => array_merge( $license, $this->client->get_admin_info() ),
 			'route'    => $actions[ $action ],
 			'blocking' => true
 		] );
-
-		if ( is_wp_error( $response ) ) {
-			return [
-				'success' => false,
-				'error'   => $response->get_error_message(),
-				'code'    => $response->get_error_code(),
-				'data'    => $response->get_error_data( $response->get_error_code() ),
-			];
-		}
-
-		$code = wp_remote_retrieve_response_code( $response );
-		$body = wp_remote_retrieve_body( $response );
-		$body = json_decode( $body, true );
-
-		if ( 201 === $code && ! $response ) {
-			return [
-				'success' => true,
-				'message' => $body['message'] ?? __( 'Operation successful.', 'storeengine-sdk' ),
-				'data'    => []
-			];
-		}
-
-		if ( $code && $code >= 400 ) {
-			return [
-				'success' => false,
-				'error'   => $body['message'] ?? __( 'Unknown error.', 'storeengine-sdk' ),
-				'code'    => $body['code'] ?? 'UNKNOWN_ERROR',
-				'data'    => $body['data'] ?? [],
-			];
-		}
-
-		$message = $body['message'] ?? __( 'Operation successful.', 'storeengine-sdk' );
-
-		unset( $body['message'] );
-
-		return [
-			'success' => true,
-			'message' => $message,
-			'data'    => $body,
-		];
 	}
 
 	public function set_menu_args( $args = [] ): SE_License_SDK_License {
