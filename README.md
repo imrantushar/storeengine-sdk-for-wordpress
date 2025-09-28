@@ -102,7 +102,7 @@ add_action( 'plugins_loaded', function () {
 ### Deploy Free Plugins
 
 Free WordPress plugin can be deployed with StoreEngine, and SDK will now can auto-update the plugin directly from the deployed server.
-This can be achieved by setting `is_free` to `false` and setting `use_update` to true. Updater will fetch package information without any active license.
+This can be achieved by setting `is_free` to `true` and setting `use_update` to true. Updater will fetch package information without any active license.
 
 ```php
 add_action( 'plugins_loaded', function () {
