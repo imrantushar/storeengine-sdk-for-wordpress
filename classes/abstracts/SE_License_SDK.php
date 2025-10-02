@@ -14,7 +14,7 @@ abstract class SE_License_SDK {
 	 */
 	private static $sdk_init_file = '';
 
-	private static $sdk_version = '1.0.0';
+	private static $sdk_version = '1.1.0';
 
 	/**
 	 * Data store is initialized.
