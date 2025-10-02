@@ -1087,10 +1087,11 @@ final class SE_License_SDK_Insights {
 		}
 
 		if ( ! empty( $_REQUEST['name'] ) && ! empty( $_REQUEST['email'] ) && sanitize_email( $_REQUEST['email'] ) && is_email( $_REQUEST['email'] ) && ! empty( $_REQUEST['subject'] ) && ! empty( $_REQUEST['message'] ) ) {
-			$name    = ucwords( sanitize_text_field( $_REQUEST['name'] ) );
-			$email   = sanitize_email( $_REQUEST['email'] );
-			$subject = sprintf( 'Support Request For: %s', $this->client->getPackageName() );
+			$name  = ucwords( sanitize_text_field( $_REQUEST['name'] ) );
+			$email = sanitize_email( $_REQUEST['email'] );
 
+			// Do not translate, as the site's language might not match recipient's preference/language.
+			$subject = sprintf( 'Support Request For: %s', $this->client->getPackageName() );
 			$headers = [
 				'Content-Type: text/html; charset=UTF-8',
 				sprintf( 'From: %s <%s>', $name, $email ),

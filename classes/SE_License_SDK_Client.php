@@ -47,6 +47,13 @@ final class SE_License_SDK_Client {
 	protected $is_free = false;
 
 	/**
+	 * If initialize update for the plugin.
+	 *
+	 * @var bool
+	 */
+	protected $init_update = false;
+
+	/**
 	 * @var ?string
 	 */
 	protected $product_logo = null;
@@ -212,6 +219,7 @@ final class SE_License_SDK_Client {
 		// Optional Params.
 		$args = wp_parse_args( $args, [
 			'is_free'         => false,
+			'use_update'      => false,
 			'license_server'  => null,
 			'product_id'      => 0,
 			'slug'            => null,
@@ -224,7 +232,7 @@ final class SE_License_SDK_Client {
 		] );
 
 		if ( ! $args['license_server'] ) {
-			throw new RuntimeException( 'License SDK initialization failed. License server not must be set.' );
+			throw new RuntimeException( 'License SDK initialization failed. License server must be set.' );
 		}
 
 		if ( ! absint( $args['product_id'] ) ) {
@@ -232,6 +240,7 @@ final class SE_License_SDK_Client {
 		}
 
 		$this->is_free           = $args['is_free'];
+		$this->init_update       = ! $this->is_free || $args['use_update'];
 		$this->product_logo      = $args['product_logo'];
 		$this->primary_color     = $args['primary_color'];
 		$this->license_server    = $args['license_server'];
@@ -250,7 +259,17 @@ final class SE_License_SDK_Client {
 			$this->allow_local = true;
 		}
 
+		//http_request_reject_unsafe_urls
+		add_filter( 'http_request_host_is_external', [ $this, 'allow_license_server' ], 10, 2 );
 		add_action( 'shutdown', [ $this, 'save_software_data' ] );
+	}
+
+	public function allow_license_server( $allow, $host ) {
+		if ( $this->get_license_server_host() === $host ) {
+			return true;
+		}
+
+		return $allow;
 	}
 
 	/**
@@ -323,7 +342,9 @@ final class SE_License_SDK_Client {
 			$client->license()->set_menu_args( array_filter( $args['menu'] ) )->add_settings_page();
 
 			$client->license()->init();
+		}
 
+		if ( $client->maybe_init_update() ) {
 			// Enable updater.
 			$client->updater()->init();
 		}
@@ -391,7 +412,6 @@ final class SE_License_SDK_Client {
 	/**
 	 * Generates a sha256 hash.
 	 * @return string
-	 * @noinspection PhpUndefinedConstantInspection
 	 */
 	private function generate_device_id(): string {
 		if ( ! function_exists( 'wp_generate_password' ) ) {
@@ -416,7 +436,6 @@ final class SE_License_SDK_Client {
 	 * Set project basename, slug and version.
 	 *
 	 * @return void
-	 * @noinspection PhpUndefinedConstantInspection
 	 */
 	protected function set_basename_and_slug() {
 		if ( str_starts_with( $this->package_file, wp_normalize_path( WPMU_PLUGIN_DIR ) ) || str_starts_with( $this->package_file, wp_normalize_path( WP_PLUGIN_DIR ) ) ) {
@@ -506,20 +525,11 @@ final class SE_License_SDK_Client {
 	 * @return SE_License_SDK_Updater
 	 */
 	public function updater(): SE_License_SDK_Updater {
-		if ( $this->isFree() ) {
-			throw new RuntimeException( __( 'Cannot initialize license for this product.', 'absolute-addon' ) );
-		}
-
-		// Check if license instance is created.
-		if ( is_null( $this->license ) ) {
-			throw new RuntimeException( __( 'License system must be initialized first.', 'absolute-addon' ) );
-		}
-
 		if ( ! is_null( $this->updater ) ) {
 			return $this->updater;
 		}
 
-		$this->updater = new SE_License_SDK_Updater( $this, $this->license );
+		$this->updater = new SE_License_SDK_Updater( $this );
 
 		return $this->updater;
 	}
@@ -768,7 +778,10 @@ final class SE_License_SDK_Client {
 			'locale'      => get_locale(),
 		] );
 
-		if ( ! $this->is_free && $this->license() && $this->license()->get_key() ) {
+		$updater_routes = [ 'package-info', 'check-update' ];
+
+		// Add license info for every request, if available.
+		if ( ! $this->is_free && $this->license() && $this->license()->get_key() && empty( $body['license'] ) ) {
 			$body['license'] = $this->license()->get_key();
 		}
 
@@ -799,10 +812,6 @@ final class SE_License_SDK_Client {
 			}
 		}
 
-		if ( 'opt-in' === $args['route'] ) {
-			//dd( $response, $url, $args, $body, add_query_arg( $body, $url ) );
-		}
-
 		remove_filter( 'http_request_reject_unsafe_urls', '__return_false' );
 
 		/**
@@ -820,6 +829,54 @@ final class SE_License_SDK_Client {
 		 * @param string $route
 		 */
 		do_action( $this->getHookName( 'after_client_request_' . $args['route'] ), $response, $args['route'] );
+
+		if ( in_array( $args['route'], [
+			'activate-license',
+			'deactivate-license',
+			'check-license',
+			'package-info',
+			'check-update',
+		], true ) ) {
+			if ( is_wp_error( $response ) ) {
+				return [
+					'success' => false,
+					'error'   => $response->get_error_message(),
+					'code'    => $response->get_error_code(),
+					'data'    => $response->get_error_data( $response->get_error_code() ),
+				];
+			}
+
+			$code = wp_remote_retrieve_response_code( $response );
+			$body = wp_remote_retrieve_body( $response );
+			$body = json_decode( $body, true );
+
+			if ( 201 === $code && ! $response ) {
+				return [
+					'success' => true,
+					'message' => $body['message'] ?? __( 'Operation successful.', 'storeengine-sdk' ),
+					'data'    => []
+				];
+			}
+
+			if ( $code && $code >= 400 ) {
+				return [
+					'success' => false,
+					'error'   => $body['message'] ?? __( 'Unknown error.', 'storeengine-sdk' ),
+					'code'    => $body['code'] ?? 'UNKNOWN_ERROR',
+					'data'    => $body['data'] ?? [],
+				];
+			}
+
+			$message = $body['message'] ?? __( 'Operation successful.', 'storeengine-sdk' );
+
+			unset( $body['message'] );
+
+			return [
+				'success' => true,
+				'message' => $message,
+				'data'    => $body,
+			];
+		}
 
 		return $response;
 	}
@@ -885,6 +942,17 @@ final class SE_License_SDK_Client {
 	}
 
 	/**
+	 * Get API URI Host.
+	 *
+	 * @see wp_http_validate_url()
+	 *
+	 * @return string
+	 */
+	public function get_license_server_host(): string {
+		return trim( parse_url( $this->getLicenseserver(), PHP_URL_HOST ), '.' );
+	}
+
+	/**
 	 * Get API Version using by this client.
 	 *
 	 * @return string
@@ -917,6 +985,10 @@ final class SE_License_SDK_Client {
 
 	public function isPro(): bool {
 		return ! $this->isFree();
+	}
+
+	public function maybe_init_update(): bool {
+		return $this->init_update;
 	}
 
 	/**
