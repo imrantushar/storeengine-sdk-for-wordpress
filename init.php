@@ -38,7 +38,7 @@ if ( ! function_exists( 'se_license_manager_register_1_dot_1_dot_0' ) && functio
 	 */
 	function se_license_manager_register_1_dot_1_dot_0() { // WRCS: DEFINED_VERSION.
 		$versions = SE_License_SDK_Version_Manager::instance();
-		$versions->register( '1.0.0', 'se_license_manager_initialize_1_dot_1_dot_0' ); // WRCS: DEFINED_VERSION.
+		$versions->register( '1.1.0', 'se_license_manager_initialize_1_dot_1_dot_0' ); // WRCS: DEFINED_VERSION.
 	}
 
 	// phpcs:disable Generic.Functions.OpeningFunctionBraceKernighanRitchie.ContentAfterBrace
