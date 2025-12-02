@@ -14,7 +14,7 @@ abstract class SE_License_SDK {
 	 */
 	private static $sdk_init_file = '';
 
-	private static $sdk_version = '1.1.0';
+	private static $sdk_version = null;
 
 	/**
 	 * Data store is initialized.
@@ -110,8 +110,9 @@ abstract class SE_License_SDK {
 	 *
 	 * @param string $sdk_init_file Plugin file path.
 	 */
-	public static function init( string $sdk_init_file ) {
+	public static function init( string $sdk_init_file, string $version = null ): void {
 		self::$sdk_init_file = $sdk_init_file;
+		self::$sdk_version   = $version;
 
 		spl_autoload_register( [ __CLASS__, 'autoload' ] );
 
@@ -121,11 +122,9 @@ abstract class SE_License_SDK {
 		do_action( 'se_license_sdk_pre_init' );
 
 		require_once self::sdk_path( 'functions.php' );
-		
+
 		// Ensure initialization on plugin activation.
 		if ( ! did_action( 'init' ) ) {
-			// phpcs:ignore Squiz.PHP.CommentedOutCode
-
 			add_action(
 				'init',
 				/**
@@ -143,10 +142,9 @@ abstract class SE_License_SDK {
 					 */
 					do_action( 'se_license_sdk_init' );
 				},
-				1
+				PHP_INT_MIN // As early as possible.
 			);
 		} else {
-			
 			self::$sdk_initialized = true;
 
 			/**
@@ -196,8 +194,8 @@ abstract class SE_License_SDK {
 	 */
 	protected static function is_class_abstract( string $class ): bool {
 		static $abstracts = [
-			'SE_License_SDK'                            => true,
-			'SE_License_SDK_WPCLI_Command'              => true,
+			'SE_License_SDK'               => true,
+			'SE_License_SDK_WPCLI_Command' => true,
 		];
 
 		return isset( $abstracts[ $class ] ) && $abstracts[ $class ] || false !== strpos( $class, 'SE_License_SDK_Abstract_' );
@@ -210,7 +208,7 @@ abstract class SE_License_SDK {
 	 *
 	 * @return bool
 	 */
-	protected static function is_class_cli( $class ) {
+	protected static function is_class_cli( string $class ): bool {
 		static $cli_segments = array(
 			'QueueRunner'                             => true,
 			'Command'                                 => true,
@@ -220,7 +218,7 @@ abstract class SE_License_SDK {
 		);
 
 		$segments = explode( '_', $class );
-		$segment  = isset( $segments[1] ) ? $segments[1] : $class;
+		$segment  = $segments[1] ?? $class;
 
 		return isset( $cli_segments[ $segment ] ) && $cli_segments[ $segment ];
 	}
