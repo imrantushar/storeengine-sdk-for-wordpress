@@ -1,4 +1,29 @@
 *** Changelog ***
 
-= 1.0.0 - 2025-08-10 =
+= 1.2.0 - 02-12-2025 =
+* Refactored user agent string generation in client class for more detailed environment info and standardized header casing.
+* Enhanced promotions class to handle non-JSON and error responses from the server, ensuring only valid promotions are processed.
+* Added comments explaining logic for hiding promotions for users and admins.
+* Unified version information, passing version to SDK client form initializer.
+
+= 1.1.0 - 06-10-2025 =
+* Updated documentation and fixed typo in readme file.
+* Added doc-comment
+* Added GitHub Actions workflow for release on tag.
+* Fixed promo transient data type before storing.
+* Refactored insights opt-in logic to support delayed and conditional display.
+* Added new methods for install time and notice delay, and improved admin notice rendering.
+* Introduced new views for deactivation reasons and support ticket submission/email.
+* Updated license form and related styles for better UI consistency.
+* Redirects to license form anchor after license check for better user experience.
+* Added UTM parameters to the purchase link for tracking.
+* Updated license-check redirect URL (with hash fragment) for better navigation UX.
+* Updated insights and promotions modules to use a unified CSS variable for primary color, improving consistency across notices, modals, and forms.
+* Refactored support ticket email and form templates for insights, renamed and replaced related view files, and enhanced promo hiding logic to combine transient and user options.
+* Improved code style and documentation for better developer experience.
+* Fixed opt-in notice (insight) template loading.
+* Updated deactivation modal script loader hook priority.
+* Removed error_log statements & clean up unnecessary debug output.
+
+= 1.0.0 - 21-08-2025 =
 * Initial Commit.
