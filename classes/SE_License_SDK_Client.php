@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Class Client
  */
@@ -10,7 +9,7 @@ final class SE_License_SDK_Client {
 	 *
 	 * @var string
 	 */
-	protected $version = '1.1.0';
+	protected $version = null;
 
 	/**
 	 * API EndPoint.
@@ -507,7 +506,7 @@ final class SE_License_SDK_Client {
 	 */
 	public function license(): SE_License_SDK_License {
 		if ( $this->isFree() ) {
-			throw new RuntimeException( __( 'Cannot initialize license for this product.', 'absolute-addon' ) );
+			throw new RuntimeException( 'Cannot initialize license for free product.' );
 		}
 
 		if ( ! is_null( $this->license ) ) {
@@ -666,9 +665,9 @@ final class SE_License_SDK_Client {
 	 *
 	 * Outputs
 	 *
-	 * `StoreEngineLicenseClientSDK/1.0 (StoreEngine; WordPress/6.8) TestBlog (TestProject/2.1:Plugin) https://test-blog.com`
+	 * `SE-Client-SDK/1.1.0 (Plugin test-project/2.1.0; WordPress/6.8.3; OS Darwin/arm64; PHP/7.4.33) "Test Blog" https://test-blog.com`
 	 *
-	 * `StoreEngineLicenseClientSDK/1.0 (StoreEngine; WordPress/6.8) TestBlog (TestProject/2.1:Theme) https://test-blog.com`
+	 * `SE-Client-SDK/1.1.0 (Theme test-project/2.1.0; WordPress/6.8.3; OS Darwin/arm64; PHP/7.4.33) "Test Blog" https://test-blog.com`
 	 *
 	 * @return string
 	 */
@@ -676,22 +675,28 @@ final class SE_License_SDK_Client {
 		global $wp_version;
 
 		// %1$s: SDK Client Version
-		// %2$s: WordPress Core Version
-		// %3$s: Site Name
-		// %4$s: Project Name
-		// %5$s: Project Version
-		// %6$s: Project Type (Plugin|Theme)
-		// %7$s: Site URL
+		// %2$s: Product/Package Type (Plugin/Theme)
+		// %3$s: Product/Package Slug
+		// %4$s: Product/Package Version
+		// %5$s: WordPress Core Version
+		// %6$s: OS Name
+		// %7$s: OS Arch
+		// %8$s: PHP Version
+		// %9$s: Site Name
+		// %10$s: Site URL
 
 		return sprintf(
-			'StoreEngineLicenseClientSDK/%1$s (StoreEngine; WordPress/%2$s) %3$s (%4$s/%5$s:%6$s) %7$s',
+			'SE-Client-SDK/%1$s (%2$s %3$s/%4$s; WordPress/%5$s; OS %6$s/%7$s; PHP/%8$s) "%9$s" %10$s',
 			$this->version,
-			$wp_version,
-			get_option( 'blogname' ),
-			$this->getPackageName(),
-			$this->package_version,
 			ucfirst( $this->type ),
-			home_url()
+			$this->getSlug(),
+			$this->package_version,
+			$wp_version,
+			PHP_OS_FAMILY,
+			php_uname( 'm' ) ?: ( PHP_INT_SIZE === 8 ? 'x86_64' : 'x86' ),
+			PHP_VERSION,
+			get_option( 'blogname' ),
+			site_url()
 		);
 	}
 
@@ -730,9 +735,8 @@ final class SE_License_SDK_Client {
 
 		// Request Headers
 		$headers = [
-			//'Content-Type' => 'application/json',
-			'user-agent' => $this->get_user_agent(),
-			'Accept'     => 'application/json',
+			'User-Agent'   => $this->get_user_agent(),
+			'Accept'       => 'application/json',
 		];
 
 		/**
@@ -830,13 +834,9 @@ final class SE_License_SDK_Client {
 		 */
 		do_action( $this->getHookName( 'after_client_request_' . $args['route'] ), $response, $args['route'] );
 
-		if ( in_array( $args['route'], [
-			'activate-license',
-			'deactivate-license',
-			'check-license',
-			'package-info',
-			'check-update',
-		], true ) ) {
+		$routes = [ 'activate-license', 'deactivate-license', 'check-license', 'package-info', 'check-update' ];
+
+		if ( in_array( $args['route'], $routes, true ) ) {
 			if ( is_wp_error( $response ) ) {
 				return [
 					'success' => false,
@@ -944,9 +944,9 @@ final class SE_License_SDK_Client {
 	/**
 	 * Get API URI Host.
 	 *
+	 * @return string
 	 * @see wp_http_validate_url()
 	 *
-	 * @return string
 	 */
 	public function get_license_server_host(): string {
 		return trim( parse_url( $this->getLicenseserver(), PHP_URL_HOST ), '.' );

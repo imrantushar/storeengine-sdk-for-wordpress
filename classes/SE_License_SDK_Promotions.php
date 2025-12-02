@@ -211,6 +211,11 @@ final class SE_License_SDK_Promotions {
 			// Decode to array.
 			$promos = json_decode( $promos, true );
 
+			// @NOTE: Happens when firewall respond with html.
+			if ( ! $promos || json_last_error() !== JSON_ERROR_NONE ) {
+				$promos = [];
+			}
+
 			// Filter promotions by date.
 			$promos = array_filter( $promos, [ $this, 'is_promo_active' ] );
 
@@ -225,28 +230,35 @@ final class SE_License_SDK_Promotions {
 	 * Check if promotion is active by date.
 	 * must have start and end property
 	 *
-	 * @param array $promo {   the promo item.
+	 * @param array|string $promo {   Promo items.
 	 *      Single Promo item
-	 *
-	 * @type string $content string. required
-	 * @type string $start valid timestamp. required
-	 * @type string $end valid timestamp. required
+	 * 		@type string $content string. Promo Content.
+	 * 		@type string $start string. Datetime string (Y-m-d H:i:s).
+	 * 		@type string $end string. Datetime string (Y-m-d H:i:s).
 	 * }
 	 *
 	 * @return bool
 	 */
-	protected function is_promo_active( array $promo ): bool {
-		$now = current_time( 'timestamp', 1 ); // phpcs:ignore
+	protected function is_promo_active( $promo ): bool {
+		// @NOTE: Occasionally the server returns non-JSON data or an HTML error page with a 200 status.
+		//        This often happens if a firewall blocks the request and the SDK User-Agent is not whitelisted.
+		if ( ! is_array( $promo ) ) {
+			return false;
+		}
+
+		if ( ! empty( $promo['error'] ) ) {
+			return false;
+		}
 
 		// Valid promo item must have hash, content, start & end date-time.
 
-		return
-			! empty( $promo['hash'] ) &&
-			! empty( $promo['content'] ) &&
-			! empty( $promo['start'] ) &&
-			! empty( $promo['end'] ) &&
-			strtotime( $promo['start'] ) <= $now &&
-			$now <= strtotime( $promo['end'] );
+		if ( empty( $promo['hash'] ) || empty( $promo['content'] ) || empty( $promo['start'] ) || empty( $promo['end'] ) ) {
+			return false;
+		}
+
+		$now = time();
+
+		return strtotime( $promo['start'] ) <= $now && $now <= strtotime( $promo['end'] );
 	}
 
 	protected function is_promo_visible( array $promo ): bool {
@@ -322,7 +334,7 @@ final class SE_License_SDK_Promotions {
             .se-sdk-promo--column.se-sdk-promo--logo img {
                 max-height: 101px;
                 min-height: 75px;
-				height: 100%;
+                height: 100%;
                 width: auto;
             }
 
@@ -368,9 +380,9 @@ final class SE_License_SDK_Promotions {
                 background: var( --se-sdk-primary-color );
                 border-color: var( --se-sdk-primary-color );
                 box-shadow:
-						inset 3px 4px 6px 0 rgba(1, 9, 12, 0.25),
-						0 0 0 1px #fff,
-						0 0 0 3px var(--se-sdk-primary-color);
+                        inset 3px 4px 6px 0 rgba(1, 9, 12, 0.25),
+                        0 0 0 1px #fff,
+                        0 0 0 3px var(--se-sdk-primary-color);
             }
 
             .se-sdk-promo--wrap .se-sdk-promo--btn:active {
@@ -438,14 +450,14 @@ final class SE_License_SDK_Promotions {
 
 		$this->hidden_promotions[] = $promo;
 
-		// Hide for all users for 7 days.
+		// Temporarily hide for all admin/users for 7 days.
 		set_transient(
 			$this->client->getHookName( 'hidden_promos' ),
 			array_unique( array_filter( $this->hidden_promotions ) ),
 			7 * DAY_IN_SECONDS
 		);
 
-		// Hide for current user.
+		// Permanently hide for current admin/user.
 		update_user_option( get_current_user_id(), $this->client->getHookName( 'hidden_promos' ), array_unique( array_filter( $this->hidden_promotions ) ) );
 
 		wp_send_json_success();
@@ -460,9 +472,9 @@ final class SE_License_SDK_Promotions {
 			_doing_it_wrong( __METHOD__, esc_html__( 'Method must be invoked inside admin_init action.', 'storeengine-sdk' ), '1.0.0' );
 		}
 
-		//return delete_user_option( get_current_user_id(), $this->client->getHookName( 'hidden_promos' ) );
+		// @NOTE Only delete the transient for hidden-promos, keep the user-option.
+		//       So current admin doesn't get irritated but other admin can see the promos.
 		return delete_transient( $this->client->getHookName( 'hidden_promos' ) );
-
 	}
 
 	/**
