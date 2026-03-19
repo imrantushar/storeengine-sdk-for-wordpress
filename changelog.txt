@@ -1,5 +1,14 @@
 *** Changelog ***
 
+= 1.3.0 - 19-03-2026 =
+* Added isolated per-client REST API for license and insights management.
+* Unified license activation and deactivation logic across the REST API and the built-in management page.
+* Added support for license key masking and public data formatting in the license class.
+* Introduced `get_js_params()` in the client class for easier frontend integration.
+* Improved SDK initialization and path resolution, including PHP 8.1+ compatibility fixes.
+* Refactored REST API callbacks to provide enriched error and success responses.
+* General code style improvements and standard compliance fixes.
+
 = 1.2.0 - 02-12-2025 =
 * Refactored user agent string generation in client class for more detailed environment info and standardized header casing.
 * Enhanced promotions class to handle non-JSON and error responses from the server, ensuring only valid promotions are processed.
