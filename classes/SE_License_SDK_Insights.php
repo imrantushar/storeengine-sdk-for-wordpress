@@ -573,7 +573,7 @@ final class SE_License_SDK_Insights {
 		if ( isset( $_REQUEST['_wpnonce'], $_REQUEST['optAct'] ) && $_REQUEST['optAct'] ) {
 			check_admin_referer( $this->client->getHookName( 'insight_action' ) );
 			if ( $this->client->getHookName( 'tracker_optOut' ) === $_REQUEST['optAct'] ) {
-				$this->optOut( false );
+				$this->optOut( true );
 			} else {
 				$this->optIn();
 			}

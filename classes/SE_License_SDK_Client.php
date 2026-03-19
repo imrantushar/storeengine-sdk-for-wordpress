@@ -299,10 +299,6 @@ final class SE_License_SDK_Client {
 			       ->set_ticket_template( $args['ticket_template'] ?? '' )
 			       ->set_ticket_recipient( $args['ticket_recipient'] ?? '' );
 
-			if ( array_key_exists( 'should_show_optin', $args ) && ! $args['should_show_optin'] ) {
-				$client->insights()->hide_optin_notice();
-			}
-
 			if ( ! empty( $args['first_install_time'] ) ) {
 				$client->insights()->set_first_install_time( $args['first_install_time'] );
 			}

@@ -8,13 +8,25 @@
 abstract class SE_License_SDK {
 
 	/**
-	 * SDK file path.
+	 * SDK init.php file path.
 	 *
 	 * @var string
 	 */
-	private static $sdk_init_file = '';
+	private static $sdk_init_file;
 
-	private static $sdk_version = null;
+	/**
+	 * SDK installation directory with trailing slash.
+	 *
+	 * @var string
+	 */
+	private static $sdk_dir_path;
+
+	/**
+	 * SDK Version.
+	 *
+	 * @var string
+	 */
+	private static $sdk_version;
 
 	/**
 	 * Data store is initialized.
@@ -23,7 +35,10 @@ abstract class SE_License_SDK {
 	 */
 	private static $sdk_initialized = false;
 
-	private static $items = [];
+	/**
+	 * @var array<string, SE_License_SDK_Client>
+	 */
+	private static $registered = [];
 
 	/**
 	 * Get the absolute system path to the sdk directory, or a file therein
@@ -35,12 +50,11 @@ abstract class SE_License_SDK {
 	 * @return string
 	 */
 	public static function sdk_path( ?string $path ): string {
-		$base = dirname( self::$sdk_init_file );
-		if ( $path ) {
-			return trailingslashit( $base ) . $path;
-		} else {
-			return untrailingslashit( $base );
+		if ( ! $path ) {
+			return self::$sdk_dir_path;
 		}
+
+		return self::$sdk_dir_path . ltrim( $path, '/\\' );
 	}
 
 	/**
@@ -110,8 +124,9 @@ abstract class SE_License_SDK {
 	 *
 	 * @param string $sdk_init_file Plugin file path.
 	 */
-	public static function init( string $sdk_init_file, string $version = null ): void {
-		self::$sdk_init_file = $sdk_init_file;
+	public static function init( string $sdk_init_file, string $version ): void {
+		self::$sdk_init_file = realpath( $sdk_init_file );
+		self::$sdk_dir_path = trailingslashit( dirname( self::$sdk_init_file ) );
 		self::$sdk_version   = $version;
 
 		spl_autoload_register( [ __CLASS__, 'autoload' ] );
@@ -154,15 +169,15 @@ abstract class SE_License_SDK {
 		}
 	}
 
-	public static function register( string $file, string $name, array $args ) {
-		if ( empty( self::$items[ $file ] ) ) {
+	public static function register( string $file, string $name, array $args ): SE_License_SDK_Client {
+		if ( empty( self::$registered[ $file ] ) ) {
 			$client = SE_License_SDK_Client::get_instance( $file, $name, $args );
 			$client->set_sdk_version( self::$sdk_version );
 
-			self::$items[ $file ] = $client;
+			self::$registered[ $file ] = $client;
 		}
 
-		return self::$items[ $file ];
+		return self::$registered[ $file ];
 	}
 
 	/**
