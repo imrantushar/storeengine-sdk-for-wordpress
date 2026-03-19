@@ -126,7 +126,7 @@ abstract class SE_License_SDK {
 	 */
 	public static function init( string $sdk_init_file, string $version ): void {
 		self::$sdk_init_file = realpath( $sdk_init_file );
-		self::$sdk_dir_path = trailingslashit( dirname( self::$sdk_init_file ) );
+		self::$sdk_dir_path  = trailingslashit( dirname( self::$sdk_init_file ) );
 		self::$sdk_version   = $version;
 
 		spl_autoload_register( [ __CLASS__, 'autoload' ] );
@@ -178,6 +178,17 @@ abstract class SE_License_SDK {
 		}
 
 		return self::$registered[ $file ];
+	}
+
+	/**
+	 * Get registered client by product slug.
+	 *
+	 * @param string $file Absolute file path for client.
+	 *
+	 * @return ?SE_License_SDK_Client
+	 */
+	public static function get_registered( string $file ): ?SE_License_SDK_Client {
+		return $file && array_key_exists( $file, self::$registered ) ? self::$registered[ $file ] : null;
 	}
 
 	/**

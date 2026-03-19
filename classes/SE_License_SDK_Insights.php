@@ -271,7 +271,7 @@ final class SE_License_SDK_Insights {
 		}
 
 		// Send a maximum of once per week.
-		$last_send = $this->__get_last_send();
+		$last_send = $this->get_last_send();
 
 		/**
 		 * Tracking interval
@@ -437,7 +437,7 @@ final class SE_License_SDK_Insights {
 	 *
 	 * @return false|int
 	 */
-	private function __get_last_send() {
+	public function get_last_send() {
 		return $this->client->get_option( 'tracking_last_send', false );
 	}
 
@@ -446,7 +446,7 @@ final class SE_License_SDK_Insights {
 	 *
 	 * @return boolean
 	 */
-	private function is_notice_dismissed(): bool {
+	public function is_notice_dismissed(): bool {
 		return 'hide' === $this->client->get_option( 'tracking_notice', 'show' );
 	}
 
