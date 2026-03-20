@@ -96,6 +96,7 @@ add_action( 'plugins_loaded', function () {
 		'ticket_recipient'    => 'support@your-website.com',
 		'first_install_time'  => get_option( 'your-amazing-plugin-first-installation-time' ),
 		'optin_notice_delay'  => 3 * DAY_IN_SECONDS, # Optional, Default is 3 days from installation.
+		'init_restapi'        => true, # Enable isolated REST API for this product.
 	] );
 } );
 ```
@@ -125,6 +126,7 @@ add_action( 'plugins_loaded', function () {
 		'ticket_recipient'    => 'support@your-website.com',
 		'first_install_time'  => get_option( 'your-amazing-plugin-first-installation-time' ),
 		'optin_notice_delay'  => 3 * DAY_IN_SECONDS, # Optional, Default is 3 days from installation.
+		'init_restapi'        => true, # Enable isolated REST API for this product.
 	] );
 } );
 ```
@@ -145,7 +147,7 @@ toggled on with minimal additional code.
 
 ## Isolated REST API
 
-The SDK includes a built-in REST API namespace (`storeengine-sdk/v1`) that is isolated for each plugin instance. This allows for programmatic management of licenses and insights.
+The SDK includes a built-in REST API namespace (`storeengine-sdk/v1`) that is isolated for each plugin instance. This feature is disabled by default and can be enabled by setting `init_restapi` to `true` in the `se_license_init` call.
 
 ### Endpoints
 Endpoints are prefixed with your plugin slug: `/wp-json/storeengine-sdk/v1/{slug}/`
