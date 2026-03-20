@@ -68,6 +68,13 @@ final class SE_License_SDK_Client {
 	protected $init_promotions = false;
 
 	/**
+	 * Initialize rest api.
+	 *
+	 * @var bool
+	 */
+	protected $init_restapi = false;
+
+	/**
 	 * @var ?string
 	 */
 	protected $product_logo = null;
@@ -264,6 +271,7 @@ final class SE_License_SDK_Client {
 		$this->init_update       = ! $this->is_free || $args['use_update'];
 		$this->init_insights     = ! empty( $args['init_insights'] );
 		$this->init_promotions   = ! empty( $args['init_promotions'] );
+		$this->init_restapi      = ! empty( $args['init_restapi'] );
 		$this->product_logo      = $args['product_logo'];
 		$this->primary_color     = $args['primary_color'];
 		$this->license_server    = $args['license_server'];
@@ -372,8 +380,10 @@ final class SE_License_SDK_Client {
 			$client->updater()->init();
 		}
 
-		// Init REST API.
-		$client->rest_api()->init();
+		if ( $client->maybe_init_restapi() ) {
+			// Init REST API.
+			$client->rest_api()->init();
+		}
 	}
 
 	protected function load_software_data() {
@@ -1067,6 +1077,10 @@ final class SE_License_SDK_Client {
 
 	public function maybe_init_promotions(): bool {
 		return $this->init_promotions;
+	}
+
+	public function maybe_init_restapi(): bool {
+		return $this->init_restapi;
 	}
 
 	/**
