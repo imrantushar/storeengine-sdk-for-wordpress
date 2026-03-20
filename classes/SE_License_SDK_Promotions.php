@@ -15,13 +15,13 @@ final class SE_License_SDK_Promotions {
 	 * Promotions
 	 * @var array[]
 	 */
-	private $promotions = [];
+	private $promotions = null;
 
 	/**
 	 * List of hidden promotions for current user
 	 * @var string[]
 	 */
-	private $hidden_promotions = [];
+	private $hidden_promotions = null;
 
 	protected $cache_ttl;
 
@@ -67,14 +67,9 @@ final class SE_License_SDK_Promotions {
 	 * @return void
 	 */
 	public function init_internal() {
-		$this->promotions = $this->get_promos();
-		$temp_hidden      = get_transient( $this->client->getHookName( 'hidden_promos' ) );
-		$user_hidden      = get_user_option( $this->client->getHookName( 'hidden_promos' ), get_current_user_id() );
-		$temp_hidden      = ! is_array( $temp_hidden ) ? [] : $temp_hidden;
-		$user_hidden      = ! is_array( $user_hidden ) ? [] : $user_hidden;
-
-		// Combine hidden for current user.
-		$this->hidden_promotions = array_unique( array_filter( array_merge( $temp_hidden, $user_hidden ) ) );
+		if ( null === $this->promotions ) {
+			$this->promotions = $this->get_promos();
+		}
 
 		// only run if there is active promotions.
 		if ( count( $this->promotions ) ) {
@@ -176,13 +171,29 @@ final class SE_License_SDK_Promotions {
 		}
 	}
 
+	public function get_hidden_promos(): array {
+		if ( null === $this->hidden_promotions ) {
+			$temp_hidden      = get_transient( $this->client->getHookName( 'hidden_promos' ) );
+			$user_hidden      = get_user_option( $this->client->getHookName( 'hidden_promos' ), get_current_user_id() );
+			$temp_hidden      = ! is_array( $temp_hidden ) ? [] : $temp_hidden;
+			$user_hidden      = ! is_array( $user_hidden ) ? [] : $user_hidden;
+
+			// Combine hidden for current user.
+			$this->hidden_promotions = array_unique( array_filter( array_merge( $temp_hidden, $user_hidden ) ) );
+		}
+
+		return $this->hidden_promotions;
+	}
+
 	/**
 	 * Get Promotion Data
 	 * Cache First then fetch source url for json data source.
 	 *
 	 * @return array[]
 	 */
-	private function get_promos(): array {
+	public function get_promos(): array {
+		$this->get_hidden_promos();
+
 		$promos = get_transient( $this->client->getHookName( 'cached_promos' ) );
 
 		if ( false === $promos || ! is_array( $promos ) ) {

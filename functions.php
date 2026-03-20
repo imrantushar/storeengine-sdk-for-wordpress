@@ -4,6 +4,55 @@
  */
 
 if ( ! function_exists( 'se_license_init' ) ) {
+	/**
+	 * Initialize the SDK.
+	 *
+	 * @param array{
+	 * package_file: string,
+	 * package_name: string,
+	 * product_id: int,
+	 * is_free: bool,
+	 * use_update: bool,
+	 * slug: string,
+	 * basename: string,
+	 * package_type: string,
+	 * package_version: string,
+	 * allow_local: bool,
+	 * license_server: string,
+	 * activation_prompt: string,
+	 * purchase_url: string,
+	 * store_dashboard_url: string,
+	 * product_logo: string,
+	 * init_restapi: bool,
+	 * menu: false|array{
+	 *        type: string,
+	 *        parent_slug: string,
+	 *        page_title: string,
+	 *        menu_title: string,
+	 *        capability: string,
+	 *        menu_slug: string,
+	 *        icon_url: string,
+	 *        position: int,
+	 * },
+	 * init_insights: bool,
+	 * should_show_optin: bool,
+	 * first_install_time: int,
+	 * optin_notice_delay: int,
+	 * data_being_collected: array,
+	 * terms_url: string,
+	 * privacy_policy_url: string,
+	 * support_url: string,
+	 * support_ticket_response: string,
+	 * support_ticket_error_response: string,
+	 * ticket_template: string,
+	 * ticket_recipient: string,
+	 * init_promotions: bool,
+	 * promo_cache_ttl: int,
+	 * promo_source: string
+	 * } $args
+	 *
+	 * @return SE_License_SDK_Client
+	 */
 	function se_license_init( array $args ): SE_License_SDK_Client {
 		$args = wp_parse_args( $args, [
 			'package_file'                  => '',
@@ -16,12 +65,12 @@ if ( ! function_exists( 'se_license_init' ) ) {
 			'package_type'                  => null,
 			'package_version'               => null,
 			'allow_local'                   => true,
-			'id'                            => null,
 			'license_server'                => null,
 			'activation_prompt'             => null,
 			'purchase_url'                  => null,
 			'store_dashboard_url'           => null,
 			'product_logo'                  => '',
+			'init_restapi'                  => false,
 			'menu'                          => [
 				'type'        => '', // Can be: menu, options, submenu. Default to menu.
 				'parent_slug' => '', // Parent menu slug if rending as submenu.

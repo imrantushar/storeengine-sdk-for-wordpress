@@ -271,7 +271,7 @@ final class SE_License_SDK_Insights {
 		}
 
 		// Send a maximum of once per week.
-		$last_send = $this->__get_last_send();
+		$last_send = $this->get_last_send();
 
 		/**
 		 * Tracking interval
@@ -437,7 +437,7 @@ final class SE_License_SDK_Insights {
 	 *
 	 * @return false|int
 	 */
-	private function __get_last_send() {
+	public function get_last_send() {
 		return $this->client->get_option( 'tracking_last_send', false );
 	}
 
@@ -446,7 +446,7 @@ final class SE_License_SDK_Insights {
 	 *
 	 * @return boolean
 	 */
-	private function is_notice_dismissed(): bool {
+	public function is_notice_dismissed(): bool {
 		return 'hide' === $this->client->get_option( 'tracking_notice', 'show' );
 	}
 
@@ -573,7 +573,7 @@ final class SE_License_SDK_Insights {
 		if ( isset( $_REQUEST['_wpnonce'], $_REQUEST['optAct'] ) && $_REQUEST['optAct'] ) {
 			check_admin_referer( $this->client->getHookName( 'insight_action' ) );
 			if ( $this->client->getHookName( 'tracker_optOut' ) === $_REQUEST['optAct'] ) {
-				$this->optOut( false );
+				$this->optOut( true );
 			} else {
 				$this->optIn();
 			}

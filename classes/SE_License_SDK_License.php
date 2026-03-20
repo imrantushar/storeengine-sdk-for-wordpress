@@ -252,15 +252,16 @@ final class SE_License_SDK_License {
 			$host = wp_parse_url( $this->client->getLicenseserver(), PHP_URL_HOST );
 			if ( ! defined( 'WP_ACCESSIBLE_HOSTS' ) || ( defined( 'WP_ACCESSIBLE_HOSTS' ) && false === stristr( WP_ACCESSIBLE_HOSTS, $host ) ) ) {
 				?>
-				<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> notice notice-error"style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
+				<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> notice notice-error"
+					 style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
 					<p><?php
 						printf(
 						/* translators: 1: Warning in bold tag, 2: This plugin name, 3: API Host Name, 4: WP_ACCESSIBLE_HOSTS constant */
-							esc_html__( '%1$s You\'re blocking external requests which means you won\'t be able to get %2$s updates. Please add %3$s to %4$s constant.', 'storeengine-sdk' ),
-							'<b>' . esc_html__( 'Warning!', 'storeengine-sdk' ) . '</b>',
-							esc_html( $this->client->getPackageName() ),
-							'<strong>' . esc_html( $host ) . '</strong>',
-							'<code>WP_ACCESSIBLE_HOSTS</code>'
+								esc_html__( '%1$s You\'re blocking external requests which means you won\'t be able to get %2$s updates. Please add %3$s to %4$s constant.', 'storeengine-sdk' ),
+								'<b>' . esc_html__( 'Warning!', 'storeengine-sdk' ) . '</b>',
+								esc_html( $this->client->getPackageName() ),
+								'<strong>' . esc_html( $host ) . '</strong>',
+								'<code>WP_ACCESSIBLE_HOSTS</code>'
 						);
 						?></p>
 				</div>
@@ -272,7 +273,8 @@ final class SE_License_SDK_License {
 
 		if ( ! empty( $this->error ) ) {
 			?>
-			<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> notice notice-error notice-alt is-dismissible" style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
+			<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> notice notice-error notice-alt is-dismissible"
+				 style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
 				<?php echo wp_kses_post( wpautop( $this->error ) ); ?>
 			</div>
 			<?php
@@ -280,7 +282,8 @@ final class SE_License_SDK_License {
 
 		if ( ! empty( $this->success ) ) {
 			?>
-			<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> notice notice-success is-dismissible" style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
+			<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> notice notice-success is-dismissible"
+				 style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
 				<?php echo wp_kses_post( wpautop( $this->success ) ); ?>
 			</div>
 			<?php
@@ -290,15 +293,16 @@ final class SE_License_SDK_License {
 	protected function inactive_license_notice() {
 		if ( ! $this->is_license_page && ! $this->is_valid() && ! $this->is_updating_license() ) {
 			?>
-			<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> se-sdk-license-notice notice updated" style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
+			<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> se-sdk-license-notice notice updated"
+				 style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
 				<p>
 					<?php
 					printf(
 					/* translators: 1: This plugin name, 2: Activation Page URL, 3: This Plugin Name */
-						esc_html__( 'The %1$s license key has not been activated, so some features are inactive! %2$s to activate %3$s.', 'storeengine-sdk' ),
-						'<b class="highlight">' . esc_attr( $this->client->getPackageName() ) . '</b>',
-						'<a href="' . esc_url( $this->get_page_url() ) . '">' . esc_html__( 'Click here', 'woo-feed' ) . '</a>',
-						'<strong>' . esc_attr( $this->client->getPackageName() ) . '</strong>'
+							esc_html__( 'The %1$s license key has not been activated, so some features are inactive! %2$s to activate %3$s.', 'storeengine-sdk' ),
+							'<b class="highlight">' . esc_attr( $this->client->getPackageName() ) . '</b>',
+							'<a href="' . esc_url( $this->get_page_url() ) . '">' . esc_html__( 'Click here', 'woo-feed' ) . '</a>',
+							'<strong>' . esc_attr( $this->client->getPackageName() ) . '</strong>'
 					);
 					?>
 				</p>
@@ -307,7 +311,7 @@ final class SE_License_SDK_License {
                 .se-sdk-license-notice {
                     color: #141A24;
                     padding: 24px !important;
-                    border-left-color: var( --se-sdk-primary-color ) !important;
+                    border-left-color: var(--se-sdk-primary-color) !important;
                     border-width: 0 !important;
                     border-left-width: 4px !important;
                 }
@@ -317,18 +321,18 @@ final class SE_License_SDK_License {
                     font-style: normal;
                     font-weight: 600;
                     line-height: 20px;
-					margin :0 !important;
-					padding : 0 !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
                 }
 
                 .se-sdk-license-notice a,
                 .se-sdk-license-notice .highlight {
                     background-color: transparent;
-                    color: var( --se-sdk-primary-color );
+                    color: var(--se-sdk-primary-color);
                 }
 
                 .se-sdk-license-notice a:focus {
-                    box-shadow: 0 0 0 2px var( --se-sdk-primary-color );
+                    box-shadow: 0 0 0 2px var(--se-sdk-primary-color);
                 }
 			</style>
 			<?php
@@ -456,17 +460,17 @@ final class SE_License_SDK_License {
 	 */
 	protected function request( string $action, array $license = [] ): array {
 		$actions = [
-			'activate'    => 'activate-license',
-			'deactivate'  => 'deactivate-license',
-			'status'      => 'check-license',
-			'information' => 'package-info',
-			'update'      => 'check-update',
+				'activate'    => 'activate-license',
+				'deactivate'  => 'deactivate-license',
+				'status'      => 'check-license',
+				'information' => 'package-info',
+				'update'      => 'check-update',
 		];
 
 		if ( ! in_array( $action, array_keys( $actions ) ) ) {
 			return [
-				'success' => false,
-				'error'   => __( 'Invalid Request Action.', 'storeengine-sdk' ),
+					'success' => false,
+					'error'   => __( 'Invalid Request Action.', 'storeengine-sdk' ),
 			];
 		}
 
@@ -476,35 +480,35 @@ final class SE_License_SDK_License {
 		// validate license data.
 		if ( ! $this->validate_license_data( $license ) ) {
 			return [
-				'success' => false,
-				'error'   => __( 'Invalid/Empty License Data.', 'storeengine-sdk' ),
+					'success' => false,
+					'error'   => __( 'Invalid/Empty License Data.', 'storeengine-sdk' ),
 			];
 		}
 
 		return $this->client->request( [
-			'body'     => array_merge( $license, $this->client->get_admin_info() ),
-			'route'    => $actions[ $action ],
-			'blocking' => true
+				'body'     => array_merge( $license, $this->client->get_admin_info() ),
+				'route'    => $actions[ $action ],
+				'blocking' => true
 		] );
 	}
 
 	public function set_menu_args( $args = [] ): SE_License_SDK_License {
 		$this->menu_args = wp_parse_args(
-			$args,
-			[
-				'type'        => 'submenu', // Can be: menu, options, submenu.
-				'menu_title'  => $this->client->getPackageName(),
-				'page_title'  => sprintf(
-				/* translators: 1. Theme/Plugin Name. */
-					esc_html__( '%s License Management', 'storeengine-sdk' ),
-					esc_html( $this->client->getPackageName() )
-				),
-				'capability'  => 'manage_options',
-				'menu_slug'   => 'manage-' . $this->client->getSlug() . '-license',
-				'icon_url'    => 'dashicons-admin-network',
-				'position'    => null,
-				'parent_slug' => 'options-general.php',
-			]
+				$args,
+				[
+						'type'        => 'submenu', // Can be: menu, options, submenu.
+						'menu_title'  => $this->client->getPackageName(),
+						'page_title'  => sprintf(
+						/* translators: 1. Theme/Plugin Name. */
+								esc_html__( '%s License Management', 'storeengine-sdk' ),
+								esc_html( $this->client->getPackageName() )
+						),
+						'capability'  => 'manage_options',
+						'menu_slug'   => 'manage-' . $this->client->getSlug() . '-license',
+						'icon_url'    => 'dashicons-admin-network',
+						'position'    => null,
+						'parent_slug' => 'options-general.php',
+				]
 		);
 
 		return $this;
@@ -520,13 +524,13 @@ final class SE_License_SDK_License {
 	public function add_settings_page(): SE_License_SDK_License {
 		if ( $this->did_init ) {
 			_doing_it_wrong(
-				__METHOD__,
-				sprintf(
-				/* translators: 1. Class Method. */
-					__( '%s Should be called before License::init()', 'storeengine-sdk' ),
-					'<code>' . __METHOD__ . '</code>'
-				),
-				'1.0.0'
+					__METHOD__,
+					sprintf(
+					/* translators: 1. Class Method. */
+							__( '%s Should be called before License::init()', 'storeengine-sdk' ),
+							'<code>' . __METHOD__ . '</code>'
+					),
+					'1.0.0'
 			);
 
 			return $this;
@@ -576,11 +580,12 @@ final class SE_License_SDK_License {
 	 */
 	public function render_menu_page() {
 		?>
-		<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> wrap se-sdk-license-settings-wrapper" style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
+		<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> wrap se-sdk-license-settings-wrapper"
+			 style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
 			<h1 class="wp-heading-inline"><?php printf(
 				/* translators: 1. Theme/Plugin Name. */
-					esc_html__( '%s License Management', 'storeengine-sdk' ),
-					esc_html( $this->client->getPackageName() )
+						esc_html__( '%s License Management', 'storeengine-sdk' ),
+						esc_html( $this->client->getPackageName() )
 				); ?></h1>
 			<hr class="wp-header-end">
 			<?php $this->render_license_page(); ?>
@@ -601,16 +606,16 @@ final class SE_License_SDK_License {
 		if ( ! $this->header_message ) {
 			$this->header_message = sprintf(
 			/* translators: %s: Plugin Name */
-				esc_html__( 'Active %s license to get professional support and automatic update from your WordPress dashboard.', 'storeengine-sdk' ),
-				'<strong>' . esc_html( $this->client->getPackageName() ) . '</strong>'
+					esc_html__( 'Active %s license to get professional support and automatic update from your WordPress dashboard.', 'storeengine-sdk' ),
+					'<strong>' . esc_html( $this->client->getPackageName() ) . '</strong>'
 			);
 		}
 
 		if ( ! $this->header_content ) {
 			$this->header_content = sprintf(
 			/* translators: %s: Plugin Name */
-				esc_html__( 'Activate %s to unlock automatic updates, priority support, and all tools to optimize your WordPress store.', 'storeengine-sdk' ),
-				'<strong>' . esc_html( $this->client->getPackageName() ) . '</strong>'
+					esc_html__( 'Activate %s to unlock automatic updates, priority support, and all tools to optimize your WordPress store.', 'storeengine-sdk' ),
+					'<strong>' . esc_html( $this->client->getPackageName() ) . '</strong>'
 			);
 		}
 
@@ -692,6 +697,12 @@ final class SE_License_SDK_License {
 					],
 					$license
 				);
+
+				if ( $response['error'] ) {
+					$this->error = $response['error'];
+				} else {
+					$this->error = __( 'Unknown error occurred.', 'storeengine-sdk' );
+				}
 			}
 
 			// Update the license state & and save in db.
@@ -699,7 +710,6 @@ final class SE_License_SDK_License {
 
 			$this->updating_license( false );
 		}
-
 	}
 
 	/**
@@ -735,11 +745,11 @@ final class SE_License_SDK_License {
 		$license = $this->parse_license_data( $license );
 
 		return (
-			! empty( $license['license'] ) &&
-			! empty( $license['device_id'] ) &&
-			//			! empty( $license['activation_id'] ) &&
-			! empty( $license['slug'] ) &&
-			! empty( $license['product_id'] )
+				! empty( $license['license'] ) &&
+				! empty( $license['device_id'] ) &&
+				//			! empty( $license['activation_id'] ) &&
+				! empty( $license['slug'] ) &&
+				! empty( $license['product_id'] )
 		);
 	}
 
@@ -780,12 +790,12 @@ final class SE_License_SDK_License {
             .se-sdk-license-settings a,
             .se-sdk-license-settings .highlight {
                 background-color: transparent;
-				text-decoration: none;
-                color: var( --se-sdk-primary-color );
+                text-decoration: none;
+                color: var(--se-sdk-primary-color);
             }
 
             .se-sdk-license-settings a:focus {
-                box-shadow: 0 0 0 2px var( --se-sdk-primary-color );
+                box-shadow: 0 0 0 2px var(--se-sdk-primary-color);
             }
 
             .se-sdk-license-settings {
@@ -806,15 +816,13 @@ final class SE_License_SDK_License {
                 gap: 24px;
                 border-radius: 4px;
                 background: #FFF;
-				max-width: 1200px;
-    			margin: auto;
+                max-width: 1200px;
+                margin: auto;
             }
 
             .se-sdk-license-title {
                 background-color: #f8fafb;
                 border-bottom: 2px solid #eaeaea;
-                display: -webkit-box;
-                display: -ms-flexbox;
                 display: flex;
                 -webkit-box-align: center;
                 -ms-flex-align: center;
@@ -827,7 +835,7 @@ final class SE_License_SDK_License {
                 width: auto;
                 max-width: 160px;
                 height: 30px;
-                fill: var( --se-sdk-primary-color );
+                fill: var(--se-sdk-primary-color);
             }
 
             .se-sdk-license-title h2 {
@@ -840,14 +848,14 @@ final class SE_License_SDK_License {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-				padding : 40px 60px;
-				line-height: 1.5;
+                padding: 40px 60px;
+                line-height: 1.5;
             }
 
-			.se-sdk-license-details-contents {
+            .se-sdk-license-details-contents {
                 color: #141A24;
                 text-align: center;
-			}
+            }
 
             .se-sdk-license-details h3 {
                 font-size: 20px;
@@ -876,17 +884,18 @@ final class SE_License_SDK_License {
             .se-sdk-license-form-wrapper {
                 width: 100%;
                 max-width: 840px;
-			}
+            }
 
             .se-sdk-license-purchase-prompt {
                 justify-content: center;
                 align-items: center;
                 display: flex;
             }
+
             .se-sdk-license-purchase-prompt p {
                 margin: 0;
                 font-size: 1em;
-			}
+            }
 
             .se-sdk-license-fields {
                 display: flex;
@@ -895,7 +904,7 @@ final class SE_License_SDK_License {
                 justify-content: space-between;
                 margin: 20px 0;
                 width: 100%;
-				gap: 16px;
+                gap: 16px;
             }
 
             .se-sdk-license-fields .input-group {
@@ -952,12 +961,12 @@ final class SE_License_SDK_License {
                 margin-left: 15px
             }
 
-			.input-group-inline {
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				gap: 16px;
-			}
+            .input-group-inline {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 16px;
+            }
 
             .se-sdk-license-fields .activate-button,
             .se-sdk-license-fields .dashboard-button,
@@ -965,7 +974,7 @@ final class SE_License_SDK_License {
                 padding: 10px 16px;
                 border-radius: 4px;
                 border: none;
-                background: var( --se-sdk-primary-color );
+                background: var(--se-sdk-primary-color);
                 white-space: nowrap;
                 color: #FFF;
                 font-size: 14px;
@@ -973,11 +982,11 @@ final class SE_License_SDK_License {
                 line-height: 20px;
                 cursor: pointer;
                 outline: none;
-				text-decoration: none;
+                text-decoration: none;
                 display: flex;
                 justify-content: center;
                 align-items: center;
-				gap : 8px;
+                gap: 8px;
             }
 
             .se-sdk-license-fields button.deactivate-button {
@@ -986,7 +995,7 @@ final class SE_License_SDK_License {
 
             .se-sdk-license-fields .dashboard-button:focus,
             .se-sdk-license-fields .activate-button:focus {
-                box-shadow: 0 0 0 1px #fff, 0 0 0 3px var( --se-sdk-primary-color );
+                box-shadow: 0 0 0 1px #fff, 0 0 0 3px var(--se-sdk-primary-color);
             }
 
             .se-sdk-license-fields button.deactivate-button:focus {
@@ -1033,14 +1042,15 @@ final class SE_License_SDK_License {
                 gap: 2px;
             }
 
-			.single-license-info.license-checked_at a {
+            .single-license-info.license-checked_at a {
                 color: currentColor;
-				text-decoration: none;
-				display: inline-flex;
-				justify-content: center;
-				align-items: center;
-			}
-			.single-license-info.license-checked_at a .dashicons {
+                text-decoration: none;
+                display: inline-flex;
+                justify-content: center;
+                align-items: center;
+            }
+
+            .single-license-info.license-checked_at a .dashicons {
                 font-size: 13px;
                 display: flex;
                 align-items: center;
@@ -1048,16 +1058,17 @@ final class SE_License_SDK_License {
                 width: 14px;
                 aspect-ratio: 1;
                 height: auto;
-			}
+            }
 
             @media (max-width: 768px) {
                 .se-sdk-license-section {
                     display: block;
                     padding: 16px 24px 24px 24px;
                 }
-				.se-sdk-license-details {
-					padding : 20px 30px;
-				}
+
+                .se-sdk-license-details {
+                    padding: 20px 30px;
+                }
 
                 .se-sdk-license-form-wrapper {
                     max-width: 425px;
@@ -1101,10 +1112,11 @@ final class SE_License_SDK_License {
 		if ( absint( $time_diff ) < WEEK_IN_SECONDS ) {
 			// translators: placeholder is human time diff (e.g. "3 weeks")
 			printf( __( '%s ago', 'storeengine-sdk' ), human_time_diff( current_time( 'timestamp', true ), $this->license['updated_at'] ) );
+
 			return;
 		}
 
-		echo esc_html( get_date_from_gmt( '@'.$this->license['updated_at'], 'Y-m-d h:i A (P)' ) );
+		echo esc_html( get_date_from_gmt( '@' . $this->license['updated_at'], 'Y-m-d h:i A (P)' ) );
 	}
 
 	protected function render_license_expire_datetime() {
@@ -1125,7 +1137,7 @@ final class SE_License_SDK_License {
 				$expires  = sprintf( __( '%s ago', 'storeengine-sdk' ), human_time_diff( current_time( 'timestamp', true ), $this->license['expires'] ) );
 				$expiring = true;
 			} else {
-				$expires = get_date_from_gmt( '@'.$this->license['expires'], 'Y-m-d h:i A (P)' );
+				$expires  = get_date_from_gmt( '@' . $this->license['expires'], 'Y-m-d h:i A (P)' );
 				$expiring = false;
 			}
 		}
@@ -1152,14 +1164,22 @@ final class SE_License_SDK_License {
 	 * @return void
 	 */
 
+	public function get_error() {
+		return $this->error;
+	}
+
+	public function get_success() {
+		return $this->success;
+	}
+
 	/**
-	 * Active client license.
+	 * Activate client license.
 	 *
-	 * @param array $postData Sanitized Form $_POST Data.
+	 * @param array $postData post data.
 	 *
 	 * @return void
 	 */
-	private function activate_client_license( array $postData ) {
+	public function activate_client_license( array $postData ) {
 
 		$this->updating_license( true );
 
@@ -1226,7 +1246,7 @@ final class SE_License_SDK_License {
 	 *
 	 * @return void
 	 */
-	private function deactivate_client_license() {
+	public function deactivate_client_license() {
 		if ( ! isset( $this->license['license'] ) || empty( $this->license['license'] ) ) {
 			$this->error = __( 'License key not found.', 'storeengine-sdk' );
 		} else {
@@ -1258,13 +1278,13 @@ final class SE_License_SDK_License {
 	 */
 	private function add_menu_page() {
 		add_menu_page(
-			$this->menu_args['page_title'],
-			$this->menu_args['menu_title'],
-			$this->menu_args['capability'],
-			$this->menu_args['menu_slug'],
-			[ $this, 'render_menu_page' ],
-			$this->menu_args['icon_url'],
-			$this->menu_args['position']
+				$this->menu_args['page_title'],
+				$this->menu_args['menu_title'],
+				$this->menu_args['capability'],
+				$this->menu_args['menu_slug'],
+				[ $this, 'render_menu_page' ],
+				$this->menu_args['icon_url'],
+				$this->menu_args['position']
 		);
 	}
 
@@ -1275,12 +1295,12 @@ final class SE_License_SDK_License {
 	 */
 	private function add_submenu_page() {
 		add_submenu_page(
-			$this->menu_args['parent_slug'],
-			$this->menu_args['page_title'],
-			$this->menu_args['menu_title'],
-			$this->menu_args['capability'],
-			$this->menu_args['menu_slug'],
-			[ $this, 'render_menu_page' ]
+				$this->menu_args['parent_slug'],
+				$this->menu_args['page_title'],
+				$this->menu_args['menu_title'],
+				$this->menu_args['capability'],
+				$this->menu_args['menu_slug'],
+				[ $this, 'render_menu_page' ]
 		);
 	}
 
@@ -1291,11 +1311,11 @@ final class SE_License_SDK_License {
 	 */
 	private function add_options_page() {
 		add_options_page(
-			$this->menu_args['page_title'],
-			$this->menu_args['menu_title'],
-			$this->menu_args['capability'],
-			$this->menu_args['menu_slug'],
-			[ $this, 'render_menu_page' ]
+				$this->menu_args['page_title'],
+				$this->menu_args['menu_title'],
+				$this->menu_args['capability'],
+				$this->menu_args['menu_slug'],
+				[ $this, 'render_menu_page' ]
 		);
 	}
 
@@ -1411,16 +1431,24 @@ final class SE_License_SDK_License {
 			return '';
 		}
 
-		$length = strlen( $license['license'] );
-		$size   = max( 8, $length / 8 );
-		$size   = $length < $size ? $length / 10 : $size;
+
+
+		return $this->mask_string( $license['license'] );
+	}
+
+	public function mask_string( string $string, ?int $size = null ): string {
+		$length = strlen( $string );
+		if ( ! $size ) {
+			$size   = max( 8, $length / 8 );
+			$size   = $length < $size ? $length / 10 : $size;
+		}
 		$mid    = $size * 2;
 		$mid    = $length > $mid ? $length - $mid : $mid;
 
 
-		$masked = substr( $license['license'], 0, $size );
+		$masked = substr( $string, 0, $size );
 		$masked .= str_repeat( '•', $mid );
-		$masked .= substr( $license['license'], -1 * $size );
+		$masked .= substr( $string, - 1 * $size );
 
 		return $masked;
 	}
@@ -1523,6 +1551,24 @@ final class SE_License_SDK_License {
 		return $this->license;
 	}
 
+	public function get_public_data(): array {
+		$data = $this->get_license();
+
+		if ( $data['license'] ) {
+			$data['license'] = $this->mask_string( $data['license'] );
+		}
+
+		if ( $data['updated_at'] ) {
+			$data['updated_at'] = gmdate( 'Y-m-d H:i:s', $data['updated_at'] );
+		}
+
+		if ( $data['expires'] ) {
+			$data['expires'] = gmdate( 'Y-m-d H:i:s', $data['expires'] );
+		}
+
+		return $data;
+	}
+
 	/**
 	 * Parse License data.
 	 *
@@ -1532,18 +1578,27 @@ final class SE_License_SDK_License {
 	 */
 	private function parse_license_data( array $data = [] ): array {
 		$defaults = [
-			'license'       => '',         // License key.
-			'status'        => 'inactive', // Current status.
-			'activation_id' => 0,
-			'device_id'     => $this->client->get_device_id(),         // Instance unique id.
-			'slug'          => $this->client->getSlug(),
-			'product_id'    => $this->client->getProductId(),
-			'remaining'     => 0,          // Remaining activation.
-			'activations'   => 0,          // Total activation.
-			'limit'         => 0,          //Activation limit.
-			'unlimited'     => false,      // Is unlimited activation.
-			'expires'       => '',          // Expires set this to a unix timestamp [GMT].
-			'updated_at'    => current_time( 'timestamp', 1 ),          // Expires set this to a unix timestamp [GMT].
+				'license'       => '',
+			// License key.
+				'status'        => 'inactive',
+			// Current status.
+				'activation_id' => 0,
+				'device_id'     => $this->client->get_device_id(),
+			// Instance unique id.
+				'slug'          => $this->client->getSlug(),
+				'product_id'    => $this->client->getProductId(),
+				'remaining'     => 0,
+			// Remaining activation.
+				'activations'   => 0,
+			// Total activation.
+				'limit'         => 0,
+			//Activation limit.
+				'unlimited'     => false,
+			// Is unlimited activation.
+				'expires'       => '',
+			// Expires set this to a unix timestamp [GMT].
+				'updated_at'    => current_time( 'timestamp', 1 ),
+			// Expires set this to a unix timestamp [GMT].
 		];
 
 		// Parse.
@@ -1562,7 +1617,7 @@ final class SE_License_SDK_License {
 		$license['activations']   = absint( $data['activations'] );
 		$license['limit']         = absint( $data['limit'] );
 		$license['unlimited']     = (bool) $data['unlimited'];
-		$license['expires']       = $data['expires'] && ! is_numeric( $data['expires'] ) ? strtotime( $data['expires'] ) : absint($data['expires']);
+		$license['expires']       = $data['expires'] && ! is_numeric( $data['expires'] ) ? strtotime( $data['expires'] ) : absint( $data['expires'] );
 		$license['updated_at']    = $data['updated_at'];
 
 		return $license;
@@ -1593,7 +1648,7 @@ final class SE_License_SDK_License {
 
 	public function migrate_from_freemius( string $freemius_license ) {
 		$this->updating_license( true );
-		$license   = $this->get_license();
+		$license = $this->get_license();
 
 		$license['license']          = $freemius_license;
 		$license['device_id']        = $this->client->get_device_id();

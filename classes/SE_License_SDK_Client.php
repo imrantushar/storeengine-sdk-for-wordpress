@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Class Client
  */
@@ -51,6 +52,27 @@ final class SE_License_SDK_Client {
 	 * @var bool
 	 */
 	protected $init_update = false;
+
+	/**
+	 * Initialize insights api (optin).
+	 *
+	 * @var bool
+	 */
+	protected $init_insights = false;
+
+	/**
+	 * Initialize promo api.
+	 *
+	 * @var bool
+	 */
+	protected $init_promotions = false;
+
+	/**
+	 * Initialize rest api.
+	 *
+	 * @var bool
+	 */
+	protected $init_restapi = false;
 
 	/**
 	 * @var ?string
@@ -141,6 +163,13 @@ final class SE_License_SDK_Client {
 	 * @var ?SE_License_SDK_Updater
 	 */
 	private $updater;
+
+	/**
+	 * Instance of Rest API class.
+	 *
+	 * @var ?SE_License_SDK_Rest_API
+	 */
+	private $rest_api;
 
 	/**
 	 * Debug Mode Flag.
@@ -240,6 +269,9 @@ final class SE_License_SDK_Client {
 
 		$this->is_free           = $args['is_free'];
 		$this->init_update       = ! $this->is_free || $args['use_update'];
+		$this->init_insights     = ! empty( $args['init_insights'] );
+		$this->init_promotions   = ! empty( $args['init_promotions'] );
+		$this->init_restapi      = ! empty( $args['init_restapi'] );
 		$this->product_logo      = $args['product_logo'];
 		$this->primary_color     = $args['primary_color'];
 		$this->license_server    = $args['license_server'];
@@ -287,7 +319,7 @@ final class SE_License_SDK_Client {
 	}
 
 	protected static function init( SE_License_SDK_Client $client, array $args ) {
-		if ( ! empty( $args['init_insights'] ) ) {
+		if ( $client->maybe_init_insights() ) {
 			// Init insights.
 			$client->insights()
 			       ->set_data_being_collected( $args['data_being_collected'] ?? null )
@@ -298,10 +330,6 @@ final class SE_License_SDK_Client {
 			       ->set_support_error_response( $args['support_ticket_error_response'] ?? '' )
 			       ->set_ticket_template( $args['ticket_template'] ?? '' )
 			       ->set_ticket_recipient( $args['ticket_recipient'] ?? '' );
-
-			if ( array_key_exists( 'should_show_optin', $args ) && ! $args['should_show_optin'] ) {
-				$client->insights()->hide_optin_notice();
-			}
 
 			if ( ! empty( $args['first_install_time'] ) ) {
 				$client->insights()->set_first_install_time( $args['first_install_time'] );
@@ -319,7 +347,7 @@ final class SE_License_SDK_Client {
 			$client->insights()->init();
 		}
 
-		if ( ! empty( $args['init_promotions'] ) ) {
+		if ( $client->maybe_init_promotions() ) {
 			// Init promos.
 			$client->promotions()
 			       ->set_source( $args['promo_source'] ?? null )
@@ -334,11 +362,15 @@ final class SE_License_SDK_Client {
 			       ->set_purchase_url( $args['purchase_url'] ?? null )
 			       ->set_header_icon( $args['product_logo'] ?? null );
 
-			if ( ! isset( $args['menu'] ) || ! is_array( $args['menu'] ) ) {
-				$args['menu'] = [];
-			}
+			$menu = array_key_exists( 'menu', $args ) ? $args['menu'] : [];
 
-			$client->license()->set_menu_args( array_filter( $args['menu'] ) )->add_settings_page();
+			if ( false !== $menu ) {
+				if ( is_array( $args['menu'] ) ) {
+					$args['menu'] = [];
+				}
+
+				$client->license()->set_menu_args( array_filter( $args['menu'] ) )->add_settings_page();
+			}
 
 			$client->license()->init();
 		}
@@ -346,6 +378,11 @@ final class SE_License_SDK_Client {
 		if ( $client->maybe_init_update() ) {
 			// Enable updater.
 			$client->updater()->init();
+		}
+
+		if ( $client->maybe_init_restapi() ) {
+			// Init REST API.
+			$client->rest_api()->init();
 		}
 	}
 
@@ -531,6 +568,49 @@ final class SE_License_SDK_Client {
 		$this->updater = new SE_License_SDK_Updater( $this );
 
 		return $this->updater;
+	}
+
+	public function get_js_params(): array {
+		$data = [
+			'rest_url'  => trailingslashit( rest_url( '/storeengine-sdk/v1/' . $this->getSlug() ) ),
+			'device_id' => $this->get_device_id(),
+			'version'   => $this->getVersion(),
+			'locale'    => get_locale(),
+			'wordpress' => get_bloginfo( 'version' ),
+		];
+
+		if ( $this->isPro() ) {
+			$data['license'] = $this->license()->get_public_data();
+		}
+
+		if ( $this->maybe_init_insights() ) {
+			$data['optin'] = [
+				'allowed'   => $this->insights()->is_tracking_allowed(),
+				'show'      => ! $this->insights()->is_notice_dismissed(),
+				'last_send' => $this->insights()->get_last_send(),
+			];
+		}
+
+		if ( $this->maybe_init_promotions() ) {
+			$data['promos'] = $this->promotions()->get_promos();
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Initialize REST API.
+	 *
+	 * @return SE_License_SDK_Rest_API
+	 */
+	public function rest_api(): SE_License_SDK_Rest_API {
+		if ( ! is_null( $this->rest_api ) ) {
+			return $this->rest_api;
+		}
+
+		$this->rest_api = new SE_License_SDK_Rest_API( $this );
+
+		return $this->rest_api;
 	}
 
 	/**
@@ -735,8 +815,8 @@ final class SE_License_SDK_Client {
 
 		// Request Headers
 		$headers = [
-			'User-Agent'   => $this->get_user_agent(),
-			'Accept'       => 'application/json',
+			'User-Agent' => $this->get_user_agent(),
+			'Accept'     => 'application/json',
 		];
 
 		/**
@@ -989,6 +1069,18 @@ final class SE_License_SDK_Client {
 
 	public function maybe_init_update(): bool {
 		return $this->init_update;
+	}
+
+	public function maybe_init_insights(): bool {
+		return $this->init_insights;
+	}
+
+	public function maybe_init_promotions(): bool {
+		return $this->init_promotions;
+	}
+
+	public function maybe_init_restapi(): bool {
+		return $this->init_restapi;
 	}
 
 	/**

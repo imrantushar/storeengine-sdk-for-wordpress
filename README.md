@@ -10,9 +10,10 @@ By integrating this SDK, you can:
 1.	Automate license activation and deactivation for customers who purchase through your own eCommerce site powered by the StoreEngine plugin.
 2.	Deliver secure and seamless automatic updates to premium plugins and themes directly within WordPress.
 3.	Track and monitor license usage with detailed activation and deactivation logs, ensuring better compliance visibility.
-4.	(Upcoming) Gain actionable insights with usage analytics, showing how your products are used in real-world environments.
-5.	(Upcoming) Run in-product promotions and marketing campaigns to cross-sell or upsell your other free or premium offerings.
-6.	(Upcoming) Add full support for theme license management and automatic updates.
+4.	Gain actionable insights with usage analytics, showing how your products are used in real-world environments.
+5.	Run in-product promotions and marketing campaigns to cross-sell or upsell your other free or premium offerings.
+6.	Integrated Isolated per-client REST API for license and insights management.
+7.	Full support for theme license management and automatic updates.
 
 Whether you’re an independent developer or managing a portfolio of WordPress products, this SDK is designed to simplify
 license enforcement, streamline product updates, and provide valuable insights—all while reducing your development overhead.
@@ -95,6 +96,7 @@ add_action( 'plugins_loaded', function () {
 		'ticket_recipient'    => 'support@your-website.com',
 		'first_install_time'  => get_option( 'your-amazing-plugin-first-installation-time' ),
 		'optin_notice_delay'  => 3 * DAY_IN_SECONDS, # Optional, Default is 3 days from installation.
+		'init_restapi'        => true, # Enable isolated REST API for this product.
 	] );
 } );
 ```
@@ -124,6 +126,7 @@ add_action( 'plugins_loaded', function () {
 		'ticket_recipient'    => 'support@your-website.com',
 		'first_install_time'  => get_option( 'your-amazing-plugin-first-installation-time' ),
 		'optin_notice_delay'  => 3 * DAY_IN_SECONDS, # Optional, Default is 3 days from installation.
+		'init_restapi'        => true, # Enable isolated REST API for this product.
 	] );
 } );
 ```
@@ -141,6 +144,20 @@ toggled on with minimal additional code.
 > **For Plugin:** Call `se_license_init()` from the main plugin file (`your-plugin-slug/your-plugin-slug.php`).
 > <br>
 > **For Theme:** Instructions coming soon.
+
+## Isolated REST API
+
+The SDK includes a built-in REST API namespace (`storeengine-sdk/v1`) that is isolated for each plugin instance. This feature is disabled by default and can be enabled by setting `init_restapi` to `true` in the `se_license_init` call.
+
+### Endpoints
+Endpoints are prefixed with your plugin slug: `/wp-json/storeengine-sdk/v1/{slug}/`
+
+- **License Activation**: `POST /license/activate` (requires `license` parameter).
+- **License Deactivation**: `POST /license/deactivate`.
+- **License Status**: `GET /license/status` (use `?force=true` to skip cache).
+- **Insights Opt-in/Out**: `POST /insights/optin` (use `?opt_in=true/false`).
+
+All endpoints require the `manage_options` capability.
 
 ## Learn More
 
