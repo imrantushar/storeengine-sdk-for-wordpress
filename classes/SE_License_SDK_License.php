@@ -437,7 +437,10 @@ final class SE_License_SDK_License {
 	 *
 	 * @return array
 	 */
-	public function activate( array $license ): array {
+	public function activate(
+			#[\SensitiveParameter]
+			array $license
+	): array {
 		return $this->request( 'activate', $license );
 	}
 
@@ -458,7 +461,11 @@ final class SE_License_SDK_License {
 	 *
 	 * @return array
 	 */
-	protected function request( string $action, array $license = [] ): array {
+	protected function request(
+			string $action,
+			#[\SensitiveParameter]
+			array $license = []
+	): array {
 		$actions = [
 				'activate'    => 'activate-license',
 				'deactivate'  => 'deactivate-license',
@@ -683,19 +690,19 @@ final class SE_License_SDK_License {
 				// Don't reset the key.
 				// keep it, if the user renew subscription update the status and reactivate the plugin.
 				$license = wp_parse_args(
-					[
-						'license'     => '',
-						'status'      => 'inactive',
-						'device_id'   => $this->client->get_device_id(),
-						'slug'        => $this->client->getSlug(),
-						'product_id'  => $this->client->getProductId(),
-						'remaining'   => 0,
-						'activations' => 0,
-						'limit'       => 0,
-						'unlimited'   => false,
-						'expires'     => '',
-					],
-					$license
+						[
+								'license'     => '',
+								'status'      => 'inactive',
+								'device_id'   => $this->client->get_device_id(),
+								'slug'        => $this->client->getSlug(),
+								'product_id'  => $this->client->getProductId(),
+								'remaining'   => 0,
+								'activations' => 0,
+								'limit'       => 0,
+								'unlimited'   => false,
+								'expires'     => '',
+						],
+						$license
 				);
 
 				if ( $response['error'] ) {
@@ -741,7 +748,10 @@ final class SE_License_SDK_License {
 	 *
 	 * @return bool
 	 */
-	public function validate_license_data( array $license = [] ): bool {
+	public function validate_license_data(
+			#[\SensitiveParameter]
+			array $license = []
+	): bool {
 		$license = $this->parse_license_data( $license );
 
 		return (
@@ -1416,7 +1426,11 @@ final class SE_License_SDK_License {
 	 *
 	 * @return string
 	 */
-	private function get_input_license_value( array $license, string $action ): string {
+	private function get_input_license_value(
+			#[\SensitiveParameter]
+			array $license,
+			string $action
+	): string {
 		//phpcs:disable
 		if ( 'deactivate' !== $action ) {
 			if ( ! empty( $_REQUEST[ $this->data_key ]['license_key'] ) ) {
@@ -1432,19 +1446,23 @@ final class SE_License_SDK_License {
 		}
 
 
-
 		return $this->mask_string( $license['license'] );
 	}
 
-	public function mask_string( string $string, ?int $size = null ): string {
+	public function mask_string(
+			#[\SensitiveParameter]
+			string $string,
+			?int $size = null
+	): string {
 		$length = strlen( $string );
-		if ( ! $size ) {
-			$size   = max( 8, $length / 8 );
-			$size   = $length < $size ? $length / 10 : $size;
-		}
-		$mid    = $size * 2;
-		$mid    = $length > $mid ? $length - $mid : $mid;
 
+		if ( ! $size ) {
+			$size = (int) max( 8, $length / 8 );
+			$size = (int) ( $length < $size ? $length / 10 : $size );
+		}
+
+		$mid = (int) ( $size * 2 );
+		$mid = $length > $mid ? $length - $mid : $mid;
 
 		$masked = substr( $string, 0, $size );
 		$masked .= str_repeat( '•', $mid );
@@ -1508,7 +1526,10 @@ final class SE_License_SDK_License {
 	 * @type int $expires Number of day remaining before the license expires.
 	 * }
 	 */
-	private function set_license( array $license = [] ) {
+	private function set_license(
+			#[\SensitiveParameter]
+			array $license = []
+	) {
 
 		// Parse & sanitize.
 		$this->license               = $this->parse_license_data( $license );
@@ -1576,7 +1597,10 @@ final class SE_License_SDK_License {
 	 *
 	 * @return array
 	 */
-	private function parse_license_data( array $data = [] ): array {
+	private function parse_license_data(
+			#[\SensitiveParameter]
+			array $data = []
+	): array {
 		$defaults = [
 				'license'       => '',
 			// License key.
