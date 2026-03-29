@@ -48,7 +48,7 @@ _This SDK is not yet available in [packagist.org](https://packagist.org/) (will 
 		}
 	],
 	"require": {
-		"storeengine/wordpress-sdk": "^1.0"
+		"storeengine/wordpress-sdk": "^1.3"
 	}
 }
 ```
