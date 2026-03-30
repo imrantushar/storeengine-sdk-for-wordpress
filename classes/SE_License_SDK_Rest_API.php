@@ -85,11 +85,11 @@ final class SE_License_SDK_Rest_API {
 	 * @return bool|WP_Error
 	 */
 	public function permissions_check() {
-		return true;
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return new WP_Error( 'rest_forbidden', __( 'You do not have permission to manage licenses.', 'storeengine-sdk' ), [ 'status' => 403 ] );
 		}
 
+		return true;
 	}
 
 	/**
