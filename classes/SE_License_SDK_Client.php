@@ -365,11 +365,11 @@ final class SE_License_SDK_Client {
 			$menu = array_key_exists( 'menu', $args ) ? $args['menu'] : [];
 
 			if ( false !== $menu ) {
-				if ( is_array( $args['menu'] ) ) {
-					$args['menu'] = [];
+				if ( is_array( $menu ) ) {
+					$client->license()->set_menu_args( array_filter( $menu ) )->add_settings_page();
+				} else {
+					$client->license()->set_page_url( $menu );
 				}
-
-				$client->license()->set_menu_args( array_filter( $args['menu'] ) )->add_settings_page();
 			}
 
 			$client->license()->init();
