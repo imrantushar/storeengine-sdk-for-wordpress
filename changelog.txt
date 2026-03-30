@@ -1,7 +1,8 @@
 *** Changelog ***
 
-= 1.3.0 - 29-03-2026 =
+= 1.3.0 - 30-03-2026 =
 * Fixed float to int implicit conversion warning in `PHP 8.1`
+* Improved IntelliSense & type hints for sdk-init helper function.
 * Added `SensitiveParameter` attribute to hide license key from error log & crash reports.
 * Added isolated per-client REST API for license and insights management.
 * Added `init_restapi` option to `se_license_init` to conditionally enable/disable the REST API.
