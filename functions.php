@@ -8,44 +8,46 @@ if ( ! function_exists( 'se_license_init' ) ) {
 	 * Initialize the SDK.
 	 *
 	 * @param array{
-	 * package_file: string,
-	 * package_name: string,
-	 * product_id: int,
-	 * is_free?: bool,
-	 * use_update?: bool,
-	 * slug: string,
-	 * basename: string,
-	 * package_type: string,
-	 * package_version: string,
-	 * allow_local?: bool,
-	 * license_server: string,
-	 * activation_prompt?: null|string,
-	 * purchase_url?: string,
-	 * store_dashboard_url?: string,
-	 * product_logo?: string,
-	 * init_restapi?: bool,
-	 * menu: false|string|array{
-	 *        type: string,
-	 *        parent_slug: string,
-	 *        page_title: string,
-	 *        menu_title: string,
-	 *        capability: string,
-	 *        menu_slug: string,
-	 *        icon_url: string,
-	 *        position: int,
+	 * package_file: string, // Product main filepath (e.g. /var/www/html/wp-content/plugins/my-plugin/my-plugin.php). Developer should define a constant in the main file with `__FILE__` as value and use the constant.
+	 * basename: string, // Plugin base name (e.g. my-plugin/my-plugin.php). Developer should define a constant in the main file with `plugin_basename( __FILE__ )` as value and use the constant..
+	 * package_name: string, // Product Name
+	 * package_type: string, // Package version: plugin, theme.
+	 * is_free?: bool, // Is free or pro. For freemium set true.
+	 * product_id: int, // Product ID from the Store/Deployment site.
+	 * use_update?: bool, // Should enable updater, For pro/freemium this needs to be enabled, for free version if deployed with StoreEngine this needs to be enabled. If developer just using SDK for uninstall-tracking/analytics this should be false.
+	 * slug: string, // Plugin slug (without main file)
+	 * package_version: string, // Current Version of the plugin
+	 * allow_local?: bool, // Should plugin dev allow license activation from local environment. Recommended.
+	 * license_server: string, // Store URL (api backend for SDK).
+	 * activation_prompt?: null|string, // Custom activation nag (admin-notice) message.
+	 * purchase_url?: string, // Plugin store product URL.
+	 * store_dashboard_url?: string, // Plugin store user dashboard (where user can find their licenses they purchesed).
+	 * product_logo?: string, // Product logo
+	 * init_restapi?: bool, // Should initialize rest api for managing license. Useful if plugin developer uses custom 'manage-license' page.
+	 * script_handler?:string, // Localize js params on this handler for react/js based custom license managemnt page. Recommended if `init_restapi` is `true`
+	 * script_object?:string, // Object name for localized js params. Recommended if  if `script_handler` is being used, must be qnique/prefixed. If not set SDK will set `SE_SDK_{PLUGIN_SLUG}`
+	 * menu: false|string|array{ // False to disable built in 'manage-license' page, url for custom 'manage-license' page or menu config for adding builtin 'manage-license' page UI.
+	 *        type: string, // menu type: menu, submenu.
+	 *        parent_slug: string, // parent menu slug if type is submenu.
+	 *        page_title: string, // Page title for the 'manage-license' page.
+	 *        menu_title: string, // Menu title.
+	 *        capability: string, // Permission for accessing the 'manage-license' page.
+	 *        menu_slug: string, // Menu slug
+	 *        icon_url: string, // Icon if type is 'menu'
+	 *        position: int, // Menu position
 	 * },
+	 * redirect_on_activation?:bool, // Should redirect to 'manage-license' page after user activates the plugin. Default is true.
 	 * init_insights?: bool,
-	 * should_show_optin?: bool,
-	 * first_install_time?: int,
-	 * optin_notice_delay?: int,
-	 * data_being_collected?: array,
-	 * terms_url?: string,
-	 * privacy_policy_url?: string,
-	 * support_url?: string,
-	 * support_ticket_response?: string,
-	 * support_ticket_error_response?: string,
-	 * ticket_template?: string,
-	 * ticket_recipient?: string,
+	 * should_show_optin?: bool, // Show analytics data collection (opt-in) notice.
+	 * first_install_time?: int, // Plugin first installation time.
+	 * optin_notice_delay?: int, // Opt-in notice delay in seconds (from first installation time).
+	 * data_being_collected?: array, // List of extra data being collect. E.g `['num_prod' => __( 'Number of products', 'textdomain' ), 'num_order' => __( 'Number of total orders', 'textdomain' ) ]`
+	 * terms_url?: string, // Terms url for the plugin/theme.
+	 * privacy_policy_url?: string, // Privacy policy page url for the plugin/theme.
+	 * support_url?: string, // Support portal URL for the plugin/theme.
+	 * ticket_recipient?: string, // Support recipient email address for sending support message directly from the dashboard.
+	 * support_ticket_response?: string, // Support form success response.
+	 * support_ticket_error_response?: string, // Support form error response.
 	 * init_promotions?: bool,
 	 * promo_cache_ttl?: int,
 	 * promo_source?: string
@@ -71,6 +73,8 @@ if ( ! function_exists( 'se_license_init' ) ) {
 			'store_dashboard_url'           => null,
 			'product_logo'                  => '',
 			'init_restapi'                  => false,
+			'script_handler'                => '',
+			'script_object'                 => '',
 			'menu'                          => [
 				'type'        => '', // Can be: menu, options, submenu. Default to menu.
 				'parent_slug' => '', // Parent menu slug if rending as submenu.
@@ -81,6 +85,7 @@ if ( ! function_exists( 'se_license_init' ) ) {
 				'icon_url'    => '', // Menu icon (icon image/svg url or dashicons).
 				'position'    => null, // Menu render priority. Mostly render after the `Settings` menu.
 			],
+			'redirect_on_activation'        => true,
 			// Insight settings
 			'init_insights'                 => true,
 			'should_show_optin'             => true,

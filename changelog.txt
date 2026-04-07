@@ -1,5 +1,15 @@
 *** Changelog ***
 
+= Unreleased =
+* Added support for localizing SDK frontend data via `script_handler`, `script_object`, `get_js_param_name()`, and `get_js_params()` for custom JavaScript or React-based license management screens.
+* Added package update metadata to localized SDK data, including current version, available update details, and update availability status.
+* Added a REST API package info endpoint for SDK integrations that need update data in custom management UIs.
+* Added `redirect_on_activation` option to allow disabling the automatic redirect to the manage license page after plugin activation.
+* Normalized the configured license server URL before using it in client requests.
+* Updated SDK helper documentation to cover the new script localization and activation redirect options.
+* Improved updater filter signatures and forced-refresh handling for package information requests.
+* Refined internal SDK component initialization to keep shared client state in sync across license, updater, REST API, promotions, and insights modules.
+
 = 1.3.0 - 30-03-2026 =
 * Fixed float to int implicit conversion warning in `PHP 8.1`
 * Improved IntelliSense & type hints for sdk-init helper function.

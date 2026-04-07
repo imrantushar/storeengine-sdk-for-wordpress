@@ -21,7 +21,7 @@ final class SE_License_SDK_Rest_API {
 	 * @param SE_License_SDK_Client $client The SDK client.
 	 */
 	public function __construct( SE_License_SDK_Client $client ) {
-		$this->client = $client;
+		$this->client = &$client;
 	}
 
 	/**
@@ -65,9 +65,20 @@ final class SE_License_SDK_Rest_API {
 			'callback'            => [ $this, 'check_license_status' ],
 			'permission_callback' => [ $this, 'permissions_check' ],
 			'args'                => [
-				'force' => [ 'type' => 'boolean' ],
+				'force' => [ 'type' => 'boolean', 'default' => false ],
 			],
 		] );
+
+		if ( $this->client->maybe_init_update() ) {
+			register_rest_route( self::NAMESPACE, '/' . $slug . '/package-info', [
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => [ $this, 'get_package_info' ],
+				'permission_callback' => [ $this, 'permissions_check' ],
+				'args'                => [
+					'force' => [ 'type' => 'boolean', 'default' => false ],
+				],
+			] );
+		}
 
 		register_rest_route( self::NAMESPACE, '/' . $slug . '/insights/optin', [
 			'methods'             => WP_REST_Server::ALLMETHODS,
@@ -147,7 +158,6 @@ final class SE_License_SDK_Rest_API {
 	public function check_license_status( WP_REST_Request $request ) {
 		if ( $request->get_param( 'force' ) ) {
 			$this->client->license()->check_license_status();
-			//$response = $this->client->license()->check();
 
 			if ( $this->client->license()->get_error() ) {
 				return new WP_Error( 'error-checking-license-status', $this->client->license()->get_error(), [ 'status' => 400 ] );
@@ -155,6 +165,30 @@ final class SE_License_SDK_Rest_API {
 		}
 
 		return rest_ensure_response( $this->client->license()->get_public_data() );
+	}
+
+	public function get_package_info( WP_REST_Request $request ) {
+		$force = $request->get_param( 'force' );
+
+		if ( 'plugin' === $this->client->getType() ) {
+			$update = $this->client->updater()->plugins_api_filter(
+				false, 'plugin_information',
+				(object) [
+					'slug'  => $this->client->getSlug(),
+					'force' => $force
+				]
+			);
+		} else {
+			$update = $this->client->updater()->themes_api_filter(
+				false, 'theme_information',
+				(object) [
+					'slug'  => $this->client->getSlug(),
+					'force' => $force
+				]
+			);
+		}
+
+		return rest_ensure_response( $update );
 	}
 
 	/**

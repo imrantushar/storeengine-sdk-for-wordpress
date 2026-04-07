@@ -171,6 +171,8 @@ final class SE_License_SDK_Client {
 	 */
 	private $rest_api;
 
+	private $js_param_name;
+
 	/**
 	 * Debug Mode Flag.
 	 *
@@ -290,6 +292,14 @@ final class SE_License_SDK_Client {
 			$this->allow_local = true;
 		}
 
+		$this->js_param_name = 'SE_SDK_' . strtoupper( $this->normalize_key( $this->slug ) );
+
+		if ( ! empty( $args['script_handler'] ) && is_string( $args['script_handler'] ) ) {
+			if ( ! empty( $args['script_object'] ) && is_string( $args['script_object'] ) ) {
+				$this->js_param_name = $this->normalize_key( $args['script_object'] );
+			}
+		}
+
 		//http_request_reject_unsafe_urls
 		add_filter( 'http_request_host_is_external', [ $this, 'allow_license_server' ], 10, 2 );
 		add_action( 'shutdown', [ $this, 'save_software_data' ] );
@@ -356,7 +366,7 @@ final class SE_License_SDK_Client {
 		}
 
 		if ( $client->isPro() ) {
-			$client->license()
+			$client->license( ! empty( $args['redirect_on_activation'] ) )
 			       ->set_header_message( $args['activation_prompt'] ?? null )
 			       ->set_manage_license_url( $args['store_dashboard_url'] ?? null )
 			       ->set_purchase_url( $args['purchase_url'] ?? null )
@@ -383,6 +393,12 @@ final class SE_License_SDK_Client {
 		if ( $client->maybe_init_restapi() ) {
 			// Init REST API.
 			$client->rest_api()->init();
+		}
+
+		if ( ! empty( $args['script_handler'] ) && is_string( $args['script_handler'] ) ) {
+			add_action( 'admin_enqueue_scripts', function () use ( $client, $args ) {
+				wp_localize_script( $args['script_handler'], $client->get_js_param_name(), $client->get_js_params() );
+			}, PHP_INT_MAX );
 		}
 	}
 
@@ -541,7 +557,7 @@ final class SE_License_SDK_Client {
 	 *
 	 * @return SE_License_SDK_License
 	 */
-	public function license(): SE_License_SDK_License {
+	public function license( bool $redirect_on_activation = true ): SE_License_SDK_License {
 		if ( $this->isFree() ) {
 			throw new RuntimeException( 'Cannot initialize license for free product.' );
 		}
@@ -550,7 +566,7 @@ final class SE_License_SDK_Client {
 			return $this->license;
 		}
 
-		$this->license = new SE_License_SDK_License( $this );
+		$this->license = new SE_License_SDK_License( $this, $redirect_on_activation );
 
 		return $this->license;
 	}
@@ -572,15 +588,35 @@ final class SE_License_SDK_Client {
 
 	public function get_js_params(): array {
 		$data = [
-			'rest_url'  => trailingslashit( rest_url( '/storeengine-sdk/v1/' . $this->getSlug() ) ),
 			'device_id' => $this->get_device_id(),
 			'version'   => $this->getVersion(),
 			'locale'    => get_locale(),
 			'wordpress' => get_bloginfo( 'version' ),
 		];
 
+		if ( $this->maybe_init_restapi() ) {
+			$data['rest_url'] = trailingslashit( rest_url( '/storeengine-sdk/v1/' . $this->getSlug() ) );
+			$data['nonce'] = wp_create_nonce( 'wp_rest' );
+		}
+
 		if ( $this->isPro() ) {
 			$data['license'] = $this->license()->get_public_data();
+		}
+
+		if ( $this->maybe_init_update() ) {
+			$data['package'] = [
+				'version' => $this->getProjectVersion(),
+				'type'    => $this->getType(),
+			];
+
+			if ( 'plugin' === $this->getType() ) {
+				$update = $this->updater()->plugins_api_filter( false, 'plugin_information', (object) [ 'slug' => $this->getSlug(), ] );
+			} else {
+				$update = $this->updater()->themes_api_filter( false, 'theme_information', (object) [ 'slug' => $this->getSlug(), ] );
+			}
+
+			$data['package']['update'] = $update;
+			$data['package']['need_update'] = $update ? version_compare( $this->getProjectVersion(), $update->new_version, '<' ): false;
 		}
 
 		if ( $this->maybe_init_insights() ) {
@@ -596,6 +632,10 @@ final class SE_License_SDK_Client {
 		}
 
 		return $data;
+	}
+
+	public function get_js_param_name(): string {
+		return $this->js_param_name;
 	}
 
 	/**
@@ -1018,7 +1058,7 @@ final class SE_License_SDK_Client {
 	 * @return string
 	 */
 	public function getLicenseServer(): string {
-		return $this->license_server;
+		return untrailingslashit( $this->license_server );
 	}
 
 	/**
@@ -1216,6 +1256,20 @@ final class SE_License_SDK_Client {
 
 	public function isTheme(): bool {
 		return 'theme' === $this->type;
+	}
+
+	public function normalize_key( string $input ): string {
+		// Replace non-alphanumeric with underscore
+		$str = preg_replace( '/[^a-zA-Z0-9]+/', '_', $input );
+
+		// Collapse multiple underscores into one
+		$str = preg_replace( '/_+/', '_', $str );
+
+		// Trim leading/trailing underscores
+		$str = trim( $str, '_' );
+
+		// Convert to uppercase
+		return $str;
 	}
 
 	/**

@@ -38,7 +38,7 @@ final class SE_License_SDK_Updater {
 	 * @param SE_License_SDK_License $license The license.
 	 */
 	public function __construct( SE_License_SDK_Client $client ) {
-		$this->client    = $client;
+		$this->client    = &$client;
 		$this->cache_key = $this->client->getHookName( 'version_info' );
 	}
 
@@ -68,7 +68,7 @@ final class SE_License_SDK_Updater {
 	 * @return void
 	 */
 	private function run_plugin_hooks() {
-		add_filter( 'pre_set_site_transient_update_plugins', [ $this, 'check_plugin_update' ] );
+		add_filter( 'pre_set_site_transient_update_plugins', [ $this, 'check_plugin_update' ], 1, 1 );
 		add_filter( 'plugins_api', [ $this, 'plugins_api_filter' ], 10, 3 );
 
 		register_activation_hook( $this->client->getPackageFile(), [ $this, 'delete_cached_version_info' ] );
@@ -89,7 +89,7 @@ final class SE_License_SDK_Updater {
 	/**
 	 * Check for Update for this specific project
 	 *
-	 * @param object $transient_data plugin update transient data.
+	 * @param false|object $transient_data plugin update transient data.
 	 *
 	 * @return object
 	 */
@@ -115,7 +115,7 @@ final class SE_License_SDK_Updater {
 				unset( $project_info->sections );
 				$transient_data->response[ $this->client->getBasename() ] = $project_info;
 			}
-			//$transient_data->last_checked = time();
+
 			$transient_data->checked[ $this->client->getBasename() ] = $this->client->getProjectVersion();
 		}
 
@@ -125,7 +125,7 @@ final class SE_License_SDK_Updater {
 	/**
 	 * Check theme update
 	 *
-	 * @param object $transient_data Theme update transient data.
+	 * @param false|object $transient_data Theme update transient data.
 	 *
 	 * @return object
 	 */
@@ -215,6 +215,7 @@ final class SE_License_SDK_Updater {
 	 * Get plugin info from WC API Manager
 	 *
 	 * @param string $action
+	 * @param bool $force
 	 *
 	 * @return bool|array
 	 */
@@ -295,7 +296,7 @@ final class SE_License_SDK_Updater {
 	 *
 	 * @return object $data
 	 */
-	public function plugins_api_filter( $data, string $action = '', $args = null ) {
+	public function plugins_api_filter( $data, string $action = '', object $args = null ) {
 		if ( 'plugin_information' !== $action ) {
 			return $data;
 		}
@@ -304,7 +305,7 @@ final class SE_License_SDK_Updater {
 			return $data;
 		}
 
-		return $this->get_information( 'plugin_information' );
+		return $this->get_information( 'plugin_information', ! empty( $args->force ) );
 	}
 
 	public function themes_api_filter( $data, string $action = '', $args = null ) {
@@ -316,7 +317,7 @@ final class SE_License_SDK_Updater {
 			return $data;
 		}
 
-		return $this->get_information( 'theme_information' );
+		return $this->get_information( 'theme_information', ! empty( $args->force ) );
 	}
 
 	/**

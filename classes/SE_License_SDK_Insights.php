@@ -77,7 +77,7 @@ final class SE_License_SDK_Insights {
 	 * @param SE_License_SDK_Client|string $client The client.
 	 */
 	final public function __construct( SE_License_SDK_Client $client ) {
-		$this->client         = $client;
+		$this->client         = &$client;
 		$this->ticketTemplate = __DIR__ . '/../views/insights-support-ticket-email.php';
 	}
 

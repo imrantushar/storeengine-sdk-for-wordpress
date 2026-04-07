@@ -34,7 +34,7 @@ final class SE_License_SDK_Promotions {
 	 *
 	 */
 	public function __construct( SE_License_SDK_Client $client ) {
-		$this->client    = $client;
+		$this->client    = &$client;
 		$this->cache_ttl = 12 * HOUR_IN_SECONDS;
 	}
 

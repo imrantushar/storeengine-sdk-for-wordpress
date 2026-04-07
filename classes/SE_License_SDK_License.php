@@ -116,16 +116,19 @@ final class SE_License_SDK_License {
 	 */
 	protected $header_content = null;
 
+	protected $redirect_on_activation = true;
+
 	/**
 	 * Initialize the class.
 	 *
 	 * @param SE_License_SDK_Client $client The Client.
 	 */
-	public function __construct( SE_License_SDK_Client $client ) {
-		$this->client        = $client;
-		$this->option_key    = $this->client->getHookName( 'manage_license' );
-		$this->data_key      = $this->client->getHookName( 'license' );
-		$this->schedule_hook = $this->client->getHookName( 'license_check_event' );
+	public function __construct( SE_License_SDK_Client $client, bool $redirect_on_activation = true ) {
+		$this->client                 = &$client;
+		$this->option_key             = $this->client->getHookName( 'manage_license' );
+		$this->data_key               = $this->client->getHookName( 'license' );
+		$this->schedule_hook          = $this->client->getHookName( 'license_check_event' );
+		$this->redirect_on_activation = $redirect_on_activation;
 
 		// Load the license.
 		$this->get_license();
@@ -365,17 +368,6 @@ final class SE_License_SDK_License {
 	 */
 	public function check(): array {
 		return $this->request( 'status', $this->license );
-	}
-
-	/**
-	 * Check Plugin Update.
-	 *
-	 * @return array
-	 *
-	 * @deprecated Updater has it's own reqest method.
-	 */
-	public function check_update(): array {
-		return $this->request( 'update', $this->license );
 	}
 
 	/**
@@ -1394,6 +1386,10 @@ final class SE_License_SDK_License {
 	 * @return void
 	 */
 	public function redirect_to_license_page( $param1, $param2 = null ) {
+		/** @noinspection PhpUndefinedClassInspection */
+		if ( ! $this->redirect_on_activation || class_exists( \WP_CLI::class, false ) ) {
+			return;
+		}
 
 		$canRedirect = false;
 
