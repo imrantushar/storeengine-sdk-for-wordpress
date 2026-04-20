@@ -1,6 +1,9 @@
 *** Changelog ***
 
-= Unreleased =
+= 1.4.0 - 20-04-2026 =
+* Improved purchase URL handling on the client with UTM parameters.
+* Added `blocking` always `true` in request args ensuring client requests are always blocking (required for server-side data saving).
+* Improved updater cache handling.
 * Added support for localizing SDK frontend data via `script_handler`, `script_object`, `get_js_param_name()`, and `get_js_params()` for custom JavaScript or React-based license management screens.
 * Added package update metadata to localized SDK data, including current version, available update details, and update availability status.
 * Added a REST API package info endpoint for SDK integrations that need update data in custom management UIs.
