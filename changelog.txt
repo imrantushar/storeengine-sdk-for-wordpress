@@ -1,6 +1,7 @@
 *** Changelog ***
 
 = 1.4.0 - 20-04-2026 =
+* Fixed normalize sdk assets path for windows compatibility.
 * Improved purchase URL handling on the client with UTM parameters.
 * Added `blocking` always `true` in request args ensuring client requests are always blocking (required for server-side data saving).
 * Improved updater cache handling.

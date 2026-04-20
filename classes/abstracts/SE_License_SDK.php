@@ -67,13 +67,15 @@ abstract class SE_License_SDK {
 	 * @return string
 	 */
 	public static function sdk_url( string $path ): string {
-		if ( str_starts_with( self::$sdk_init_file, wp_normalize_path( WPMU_PLUGIN_DIR ) ) || str_starts_with( self::$sdk_init_file, wp_normalize_path( WP_PLUGIN_DIR ) ) ) {
+		if (
+			str_starts_with( self::$sdk_init_file, wp_normalize_path( WPMU_PLUGIN_DIR ) ) ||
+			str_starts_with( self::$sdk_init_file, wp_normalize_path( WP_PLUGIN_DIR ) )
+		) {
 			return trailingslashit( plugin_dir_url( self::$sdk_init_file ) ) . ltrim( $path, '/\\' );
 		}
 
-		$sdk_dir = wp_normalize_path( dirname( self::$sdk_init_file ) );
 		$theme_root = wp_normalize_path( trailingslashit( get_theme_root() ) );
-		$relative_sdk_dir = ltrim( substr( $sdk_dir, strlen( $theme_root ) ), '/\\' );
+		$relative_sdk_dir = ltrim( substr( self::$sdk_dir_path, strlen( $theme_root ) ), '/\\' );
 
 		return trailingslashit( get_theme_root_uri() ) . trailingslashit( $relative_sdk_dir ) . ltrim( $path, '/\\' );
 	}
@@ -129,7 +131,7 @@ abstract class SE_License_SDK {
 	 * @param string $sdk_init_file Plugin file path.
 	 */
 	public static function init( string $sdk_init_file, string $version ): void {
-		self::$sdk_init_file = realpath( $sdk_init_file );
+		self::$sdk_init_file = wp_normalize_path( realpath( $sdk_init_file ) );
 		self::$sdk_dir_path  = trailingslashit( dirname( self::$sdk_init_file ) );
 		self::$sdk_version   = $version;
 
