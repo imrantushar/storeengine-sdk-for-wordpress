@@ -5,10 +5,14 @@
 * Added package update metadata to localized SDK data, including current version, available update details, and update availability status.
 * Added a REST API package info endpoint for SDK integrations that need update data in custom management UIs.
 * Added `redirect_on_activation` option to allow disabling the automatic redirect to the manage license page after plugin activation.
+* Made `package_file`, `package_name`, `basename`, `package_type`, and `package_version` optional in `se_license_init()` by auto-detecting package metadata from the current plugin or theme when possible.
+* Improved package file detection to resolve a plugin's main bootstrap file when the SDK is initialized from an included file.
 * Normalized the configured license server URL before using it in client requests.
 * Updated SDK helper documentation to cover the new script localization and activation redirect options.
 * Improved updater filter signatures and forced-refresh handling for package information requests.
 * Refined internal SDK component initialization to keep shared client state in sync across license, updater, REST API, promotions, and insights modules.
+* Fixed license signature validation after activation and Freemius migration by aligning signature generation with the scheduled license check timestamp.
+* Refreshed Composer package metadata and modernized development dependency constraints.
 
 = 1.3.0 - 30-03-2026 =
 * Fixed float to int implicit conversion warning in `PHP 8.1`

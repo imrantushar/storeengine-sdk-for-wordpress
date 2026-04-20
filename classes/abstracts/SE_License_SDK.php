@@ -68,10 +68,14 @@ abstract class SE_License_SDK {
 	 */
 	public static function sdk_url( string $path ): string {
 		if ( str_starts_with( self::$sdk_init_file, wp_normalize_path( WPMU_PLUGIN_DIR ) ) || str_starts_with( self::$sdk_init_file, wp_normalize_path( WP_PLUGIN_DIR ) ) ) {
-			return plugins_url( $path, self::$sdk_init_file );
+			return trailingslashit( plugin_dir_url( self::$sdk_init_file ) ) . ltrim( $path, '/\\' );
 		}
 
-		return get_theme_file_uri( $path );
+		$sdk_dir = wp_normalize_path( dirname( self::$sdk_init_file ) );
+		$theme_root = wp_normalize_path( trailingslashit( get_theme_root() ) );
+		$relative_sdk_dir = ltrim( substr( $sdk_dir, strlen( $theme_root ) ), '/\\' );
+
+		return trailingslashit( get_theme_root_uri() ) . trailingslashit( $relative_sdk_dir ) . ltrim( $path, '/\\' );
 	}
 
 	/**
@@ -169,15 +173,23 @@ abstract class SE_License_SDK {
 		}
 	}
 
-	public static function register( string $file, string $name, array $args ): SE_License_SDK_Client {
-		if ( empty( self::$registered[ $file ] ) ) {
-			$client = SE_License_SDK_Client::get_instance( $file, $name, $args );
-			$client->set_sdk_version( self::$sdk_version );
+	public static function register( string $file = '', string $name = '', array $args = [] ): SE_License_SDK_Client {
+		$registered_file = SE_License_SDK_Client::detect_package_file( $file, $args );
 
-			self::$registered[ $file ] = $client;
+		if ( ! empty( $registered_file ) && ! empty( self::$registered[ $registered_file ] ) ) {
+			return self::$registered[ $registered_file ];
 		}
 
-		return self::$registered[ $file ];
+		$client = SE_License_SDK_Client::get_instance( $file, $name, self::$sdk_version, $args, );
+		$client->set_sdk_version( self::$sdk_version );
+
+		$registered_file = $client->getPackageFile();
+
+		if ( empty( self::$registered[ $registered_file ] ) ) {
+			self::$registered[ $registered_file ] = $client;
+		}
+
+		return self::$registered[ $registered_file ];
 	}
 
 	/**

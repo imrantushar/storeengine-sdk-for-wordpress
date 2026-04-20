@@ -43,7 +43,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 				<?php foreach ( $reasons as $reason ) { ?>
 					<li class="reason-item" data-type="<?php echo esc_attr( $reason['type'] ); ?>" data-placeholder="<?php echo esc_attr( $reason['placeholder'] ); ?>">
 						<label>
-							<input class="reason-type" type="radio" name="selected-reason" value="<?php echo esc_attr( $reason['id'] ); ?>"> <?php echo esc_html( $reason['text'] ); ?>
+							<input class="reason-type" type="radio" name="<?php echo esc_attr( $this->client->getSlug() ); ?>-selected-reason" value="<?php echo esc_attr( $reason['id'] ); ?>"> <?php echo esc_html( $reason['text'] ); ?>
 						</label>
 					</li>
 				<?php } ?>
@@ -51,7 +51,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 		
 		</div>
 		<div class="se-sdk-deactivation-modal--footer">
-			<button class="button deactivate"><?php esc_html_e( 'Submit & Deactivate', 'storeengine-sdk' ); ?></button>
+			<button class="button send-reason" disabled><?php esc_html_e( 'Submit & Deactivate', 'storeengine-sdk' ); ?></button>
 			<button class="button button-link dont-bother-me"><?php esc_html_e( 'Skip & Deactivate', 'storeengine-sdk' ); ?></button>
 		</div>
 	</div>

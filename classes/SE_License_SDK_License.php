@@ -92,12 +92,6 @@ final class SE_License_SDK_License {
 
 	protected $manage_license_url = null;
 
-	/**
-	 * Product Purchase Page URL
-	 * @var string
-	 */
-	protected $purchase_url = '';
-
 	private $updating_license = false;
 
 	protected $page_url = null;
@@ -162,12 +156,6 @@ final class SE_License_SDK_License {
 
 	public function set_manage_license_url( string $url = null ): SE_License_SDK_License {
 		$this->manage_license_url = $url;
-
-		return $this;
-	}
-
-	public function set_purchase_url( string $url = null ): SE_License_SDK_License {
-		$this->purchase_url = $url;
 
 		return $this;
 	}
@@ -484,11 +472,7 @@ final class SE_License_SDK_License {
 			];
 		}
 
-		return $this->client->request( [
-				'body'     => array_merge( $license, $this->client->get_admin_info() ),
-				'route'    => $actions[ $action ],
-				'blocking' => true
-		] );
+		return $this->client->request( [ 'body'  => array_merge( $license, $this->client->get_admin_info() ), 'route' => $actions[ $action ] ] );
 	}
 
 	public function set_menu_args( $args = [] ): SE_License_SDK_License {
@@ -632,20 +616,26 @@ final class SE_License_SDK_License {
 	 */
 	public function handle_license_page_form() {
 		$check_key = $this->client->getSlug() . '-check-license';
+
 		if ( isset( $_GET[ $check_key ] ) && wp_verify_nonce( sanitize_text_field( $_GET[ $check_key ] ), $this->client->getSlug() ) ) {
 			$this->check_license_status();
 			wp_safe_redirect( $this->get_page_url() . '#' . $this->client->getSlug() . '-license-form' );
 			die();
 		}
 
-		if ( isset( $_POST[ $this->data_key ], $_POST[ $this->data_key ]['_action'] ) ) {
+		$action = sanitize_text_field( wp_unslash( $_POST[ $this->data_key ]['_action'] ?? '' ) );
+
+		if ( $action ) {
 			check_admin_referer( $this->data_key );
-			switch ( $_POST[ $this->data_key ]['_action'] ) {
+
+			switch ( $action ) {
 				case 'activate':
 					$this->activate_client_license( array_map( 'sanitize_text_field', $_POST[ $this->data_key ] ) );
+					do_action( $this->client->getHookName( 'license-activate' ) );
 					break;
 				case 'deactivate':
 					$this->deactivate_client_license();
+					do_action( $this->client->getHookName( 'license-deactivate' ) );
 					break;
 				default:
 					break;
@@ -1234,13 +1224,13 @@ final class SE_License_SDK_License {
 
 		// Don't reset the key.
 		// keep it, so if the user renew subscription update the status and reactivate the plugin.
+		// Schedule before saving so the signature payload uses the same next-run timestamp as validation.
+		$this->schedule_license_check();
 
 		// Update license status.
 		$this->set_license( wp_parse_args( $response['data'], $license ) );
 
 		$this->updating_license( false );
-
-		$this->schedule_license_check();
 	}
 
 	/**
@@ -1327,7 +1317,7 @@ final class SE_License_SDK_License {
 	 * @return void
 	 */
 	public function schedule_license_check() {
-		if ( ! $this->get_key() ) {
+		if ( empty( $this->license['license'] ) && ! $this->get_key() ) {
 			return;
 		}
 
@@ -1598,27 +1588,18 @@ final class SE_License_SDK_License {
 			array $data = []
 	): array {
 		$defaults = [
-				'license'       => '',
-			// License key.
-				'status'        => 'inactive',
-			// Current status.
+				'license'       => '', // License key.
+				'status'        => 'inactive', // Current status.
 				'activation_id' => 0,
-				'device_id'     => $this->client->get_device_id(),
-			// Instance unique id.
+				'device_id'     => $this->client->get_device_id(), // Instance unique id.
 				'slug'          => $this->client->getSlug(),
 				'product_id'    => $this->client->getProductId(),
-				'remaining'     => 0,
-			// Remaining activation.
-				'activations'   => 0,
-			// Total activation.
-				'limit'         => 0,
-			//Activation limit.
-				'unlimited'     => false,
-			// Is unlimited activation.
-				'expires'       => '',
-			// Expires set this to a unix timestamp [GMT].
-				'updated_at'    => current_time( 'timestamp', 1 ),
-			// Expires set this to a unix timestamp [GMT].
+				'remaining'     => 0, // Remaining activation.
+				'activations'   => 0, // Total activation.
+				'limit'         => 0, //Activation limit.
+				'unlimited'     => false, // Is unlimited activation.
+				'expires'       => '', // Expires set this to a unix timestamp [GMT].
+				'updated_at'    => current_time( 'timestamp', 1 ), // Expires set this to a unix timestamp [GMT].
 		];
 
 		// Parse.
@@ -1685,12 +1666,13 @@ final class SE_License_SDK_License {
 			}
 		}
 
+		// Schedule before saving so the signature payload uses the same next-run timestamp as validation.
+		$this->schedule_license_check();
+
 		// Update license status.
 		$this->set_license( wp_parse_args( $response['data'], $license ) );
 
 		$this->updating_license( false );
-
-		$this->schedule_license_check();
 
 		$this->client->set_option( 'migrated_from_freemius', current_time( 'timestamp', 1 ) );
 

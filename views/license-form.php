@@ -82,27 +82,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 						</div>
 					</form>
 
-					<?php if ( 'active' !== $status && $this->purchase_url ) { ?>
+					<?php if ( 'active' !== $status && $this->client->get_purchase_url() ) { ?>
 						<div class="se-sdk-license-purchase-prompt">
 							<p>
 								<?php
-								$link_params = [
-										'utm_source'   => 'storeengine-sdk',
-										'utm_medium'   => 'license-form',
-										'utm_campaign' => 'license-activation-upsell',
-										'utm_content'  => 'purchase-link',
-										'utm_term'     => $this->client->getSlug(),
-										'locale'       => get_locale(),
-										'sdk_version'  => $this->client->getVersion(),
-										'wordpress'    => get_bloginfo( 'version' ),
-										'type'         => $this->client->getType(),
-										'instance'     => $this->client->get_device_id(),
-								];
-								$buy_link    = add_query_arg( $link_params, $this->purchase_url );
 								printf(
 								// translators: %s. Purchase link tag
 										esc_html__( "Don’t have a license key? %s", 'storeengine-sdk' ),
-										'<a href="' . esc_url( $buy_link ) . '" target="_blank" rel="noopener noreferrer">'
+										'<a href="' . esc_url( $this->client->get_purchase_url() ) . '" target="_blank" rel="noopener noreferrer">'
 										. esc_html__( 'Purchase one here', 'storeengine-sdk' )
 										. '</a>'
 								);

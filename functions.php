@@ -8,15 +8,15 @@ if ( ! function_exists( 'se_license_init' ) ) {
 	 * Initialize the SDK.
 	 *
 	 * @param array{
-	 * package_file: string, // Product main filepath (e.g. /var/www/html/wp-content/plugins/my-plugin/my-plugin.php). Developer should define a constant in the main file with `__FILE__` as value and use the constant.
-	 * basename: string, // Plugin base name (e.g. my-plugin/my-plugin.php). Developer should define a constant in the main file with `plugin_basename( __FILE__ )` as value and use the constant..
-	 * package_name: string, // Product Name
-	 * package_type: string, // Package version: plugin, theme.
+	 * package_file?: string, // Optional product main filepath. If omitted SDK will try to detect it from the calling plugin/theme file.
+	 * basename?: string, // Optional plugin/theme basename. Auto-detected from `package_file` when omitted.
+	 * package_name?: string, // Optional product name. Auto-detected from plugin/theme metadata when omitted.
+	 * package_type?: string, // Optional package type: plugin or theme. Auto-detected when omitted.
 	 * is_free?: bool, // Is free or pro. For freemium set true.
 	 * product_id: int, // Product ID from the Store/Deployment site.
 	 * use_update?: bool, // Should enable updater, For pro/freemium this needs to be enabled, for free version if deployed with StoreEngine this needs to be enabled. If developer just using SDK for uninstall-tracking/analytics this should be false.
 	 * slug: string, // Plugin slug (without main file)
-	 * package_version: string, // Current Version of the plugin
+	 * package_version?: string, // Optional current package version. Auto-detected from plugin/theme metadata when omitted.
 	 * allow_local?: bool, // Should plugin dev allow license activation from local environment. Recommended.
 	 * license_server: string, // Store URL (api backend for SDK).
 	 * activation_prompt?: null|string, // Custom activation nag (admin-notice) message.
@@ -26,7 +26,7 @@ if ( ! function_exists( 'se_license_init' ) ) {
 	 * init_restapi?: bool, // Should initialize rest api for managing license. Useful if plugin developer uses custom 'manage-license' page.
 	 * script_handler?:string, // Localize js params on this handler for react/js based custom license managemnt page. Recommended if `init_restapi` is `true`
 	 * script_object?:string, // Object name for localized js params. Recommended if  if `script_handler` is being used, must be qnique/prefixed. If not set SDK will set `SE_SDK_{PLUGIN_SLUG}`
-	 * menu: false|string|array{ // False to disable built in 'manage-license' page, url for custom 'manage-license' page or menu config for adding builtin 'manage-license' page UI.
+	 * menu?: false|string|array{ // False to disable built in 'manage-license' page, url for custom 'manage-license' page or menu config for adding builtin 'manage-license' page UI.
 	 *        type: string, // menu type: menu, submenu.
 	 *        parent_slug: string, // parent menu slug if type is submenu.
 	 *        page_title: string, // Page title for the 'manage-license' page.
@@ -105,7 +105,7 @@ if ( ! function_exists( 'se_license_init' ) ) {
 			'promo_source'                  => null, // Default license server `promotions` route/endpoint.
 		] );
 
-		return SE_License_SDK::register( $args['package_file'], $args['package_name'], $args );
+		return SE_License_SDK::register( $args['package_file'] ?? '', $args['package_name'] ?? '', $args );
 	}
 }
 

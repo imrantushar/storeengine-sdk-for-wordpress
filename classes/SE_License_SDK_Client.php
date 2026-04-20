@@ -116,6 +116,13 @@ final class SE_License_SDK_Client {
 	protected $slug;
 
 	/**
+	 * The project purchase/checkout URL.
+	 *
+	 * @var string|null
+	 */
+	protected $purchase_url = null;
+
+	/**
 	 * The project version.
 	 *
 	 * @var string
@@ -230,21 +237,23 @@ final class SE_License_SDK_Client {
 	 *
 	 * @return void
 	 */
-	private function __construct( string $package_file, string $package_name, array $args = [] ) {
-		if ( ! file_exists( $package_file ) || ! is_file( $package_file ) ) {
+	private function __construct( string $package_file = '', string $package_name = '', array $args = [] ) {
+		$package_file = $this->resolve_package_file( $package_file, $args );
+
+		if ( ! $package_file || ! file_exists( $package_file ) || ! is_file( $package_file ) ) {
 			$message = sprintf(
 			/* translators: 1. Current Class Name. */
-				esc_html__( 'Invalid Argument. The \'$file\' argument needs to be a valid file path for initializing %s().', 'storeengine-sdk' ),
+				esc_html__( 'Invalid argument. SDK could not detect a valid plugin or theme file while initializing %s(). Pass `package_file` explicitly if auto-detection fails.', 'storeengine-sdk' ),
 				__CLASS__
 			);
 			_doing_it_wrong( __METHOD__, $message, '1.0.0' );
 
-			return;
+			throw new RuntimeException( 'License SDK initialization failed. A valid package file is required or must be auto-detected.' );
 		}
 
 		// Required Data.
-		$this->package_file = $package_file;
-		$this->package_name = $package_name;
+		$this->package_file = wp_normalize_path( $package_file );
+		$this->package_name = is_string( $package_name ) ? trim( $package_name ) : '';
 
 		// Optional Params.
 		$args = wp_parse_args( $args, [
@@ -282,11 +291,16 @@ final class SE_License_SDK_Client {
 		$this->slug              = $args['slug'];
 		$this->type              = $args['package_type'];
 		$this->package_version   = $args['package_version'];
-		$this->package_file_hash = md5( $this->package_file . $this->slug . $this->product_id . $this->license_server );
 
 		if ( ! $this->basename || ! $this->slug || ! $this->type || ! $this->package_version ) {
 			$this->set_basename_and_slug();
 		}
+
+		if ( ! $this->package_name ) {
+			$this->package_name = $this->detect_package_name();
+		}
+
+		$this->package_file_hash = md5( $this->package_file . $this->slug . $this->product_id . $this->license_server );
 
 		if ( $args['allow_local'] ) {
 			$this->allow_local = true;
@@ -320,15 +334,39 @@ final class SE_License_SDK_Client {
 	 */
 	private static $instances = [];
 
-	public static function get_instance( string $package_file, string $package_name, array $args = [] ): SE_License_SDK_Client {
+	public static function get_instance( string $package_file = '', string $package_name = '', string $sdk_version = null, array $args = [] ): SE_License_SDK_Client {
 		$self = new self( $package_file, $package_name, $args );
-		self::init( $self, $args );
+		$self->set_sdk_version( $sdk_version );
 
+		self::init( $self, $args );
 
 		return $self;
 	}
 
 	protected static function init( SE_License_SDK_Client $client, array $args ) {
+		$client->purchase_url = $args['purchase_url'] ?? null;
+
+		if ( ! empty( $args['purchase_url'] ) && is_string( $args['purchase_url'] ) ) {
+			$client->set_purchase_url(
+				add_query_arg(
+					[
+						'utm_source'   => 'storeengine-sdk',
+						'utm_medium'   => 'license-form',
+						'utm_campaign' => 'license-activation-upsell',
+						'utm_content'  => 'purchase-link',
+						'utm_term'     => $client->getSlug(),
+						'locale'       => get_locale(),
+						'sdk_version'  => $client->getVersion(),
+						'version'      => $client->getProjectVersion(),
+						'wordpress'    => get_bloginfo( 'version' ),
+						'type'         => $client->getType(),
+						'instance'     => $client->get_device_id(),
+					],
+					$args['purchase_url']
+				)
+			);
+		}
+
 		if ( $client->maybe_init_insights() ) {
 			// Init insights.
 			$client->insights()
@@ -369,7 +407,6 @@ final class SE_License_SDK_Client {
 			$client->license( ! empty( $args['redirect_on_activation'] ) )
 			       ->set_header_message( $args['activation_prompt'] ?? null )
 			       ->set_manage_license_url( $args['store_dashboard_url'] ?? null )
-			       ->set_purchase_url( $args['purchase_url'] ?? null )
 			       ->set_header_icon( $args['product_logo'] ?? null );
 
 			$menu = array_key_exists( 'menu', $args ) ? $args['menu'] : [];
@@ -520,6 +557,154 @@ final class SE_License_SDK_Client {
 				$this->package_version = $theme->get( 'Version' );
 			}
 		}
+	}
+
+	private function resolve_package_file( string $package_file, array $args ): string {
+		$candidates = [];
+
+		if ( ! empty( $package_file ) ) {
+			$candidates[] = $package_file;
+		}
+
+		if ( ! empty( $args['package_file'] ) && is_string( $args['package_file'] ) ) {
+			$candidates[] = $args['package_file'];
+		}
+
+		foreach ( $candidates as $candidate ) {
+			$candidate = wp_normalize_path( $candidate );
+			if ( file_exists( $candidate ) && is_file( $candidate ) ) {
+				return $candidate;
+			}
+		}
+
+		return self::detect_package_file_from_backtrace();
+	}
+
+	public static function detect_package_file( string $package_file = '', array $args = [] ): string {
+		$candidates = [];
+
+		if ( ! empty( $package_file ) ) {
+			$candidates[] = $package_file;
+		}
+
+		if ( ! empty( $args['package_file'] ) && is_string( $args['package_file'] ) ) {
+			$candidates[] = $args['package_file'];
+		}
+
+		foreach ( $candidates as $candidate ) {
+			$candidate = wp_normalize_path( $candidate );
+			if ( file_exists( $candidate ) && is_file( $candidate ) ) {
+				return $candidate;
+			}
+		}
+
+		return self::detect_package_file_from_backtrace();
+	}
+
+	private static function detect_package_file_from_backtrace(): string {
+		$trace = debug_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS );
+		$sdk_dir = wp_normalize_path( dirname( __DIR__ ) );
+
+		foreach ( $trace as $frame ) {
+			if ( empty( $frame['file'] ) || ! is_string( $frame['file'] ) ) {
+				continue;
+			}
+
+			$file = wp_normalize_path( $frame['file'] );
+
+			if ( str_starts_with( $file, $sdk_dir ) ) {
+				continue;
+			}
+
+			if ( file_exists( $file ) && is_file( $file ) ) {
+				return self::resolve_detected_package_file( $file );
+			}
+		}
+
+		return '';
+	}
+
+	private static function resolve_detected_package_file( string $file ): string {
+		$file = wp_normalize_path( $file );
+
+		if ( self::is_plugin_file( $file ) ) {
+			return self::detect_plugin_main_file( $file );
+		}
+
+		return $file;
+	}
+
+	private static function detect_plugin_main_file( string $file ): string {
+		$plugin_root = trailingslashit( wp_normalize_path( WP_PLUGIN_DIR ) );
+		$mu_plugin_root = trailingslashit( wp_normalize_path( WPMU_PLUGIN_DIR ) );
+		$relative_file = '';
+
+		if ( str_starts_with( $file, $plugin_root ) ) {
+			$relative_file = ltrim( substr( $file, strlen( $plugin_root ) ), '/' );
+		} elseif ( str_starts_with( $file, $mu_plugin_root ) ) {
+			$relative_file = ltrim( substr( $file, strlen( $mu_plugin_root ) ), '/' );
+		}
+
+		if ( ! $relative_file ) {
+			return $file;
+		}
+
+		// Plugin Data Function
+		if ( ! function_exists( 'get_plugins' ) || ! function_exists( 'get_plugin_data' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+
+		$plugin_headers = get_plugin_data( $file, false, false );
+		if ( ! empty( $plugin_headers['Name'] ) ) {
+			return $file;
+		}
+
+		$path_segments = explode( '/', $relative_file );
+		$plugin_slug = $path_segments[0];
+		$plugins = get_plugins( $plugin_slug );
+
+		if ( empty( $plugins ) ) {
+			return $file;
+		}
+
+		foreach ( $plugins as $plugin_basename => $plugin_data ) {
+			if ( ! empty( $plugin_data['Name'] ) ) {
+				return trailingslashit( wp_normalize_path( WP_PLUGIN_DIR ) ) . $plugin_basename;
+			}
+		}
+
+		return $file;
+	}
+
+	private static function is_plugin_file( string $file ): bool {
+		$file = wp_normalize_path( $file );
+
+		return str_starts_with( $file, trailingslashit( wp_normalize_path( WP_PLUGIN_DIR ) ) )
+			|| str_starts_with( $file, trailingslashit( wp_normalize_path( WPMU_PLUGIN_DIR ) ) );
+	}
+
+	private function detect_package_name(): string {
+		if ( $this->isPlugin() ) {
+			// Plugin Data Function
+			if ( ! function_exists( 'get_plugin_data' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/plugin.php';
+			}
+
+			$plugin_data = get_plugin_data( $this->package_file );
+
+			if ( ! empty( $plugin_data['Name'] ) ) {
+				return $plugin_data['Name'];
+			}
+		}
+
+		if ( $this->isTheme() ) {
+			$theme_name = wp_get_theme( $this->slug )->get( 'Name' );
+			if ( $theme_name ) {
+				return $theme_name;
+			}
+		}
+
+		return ucwords( str_replace( [ '-', '_' ], ' ', $this->slug ) );
 	}
 
 	/**
@@ -824,10 +1009,8 @@ final class SE_License_SDK_Client {
 	 * Send request to remote endpoint.
 	 *
 	 * @param array $args {
-	 *
 	 * @type array $body Parameters/Data that being sent.
 	 * @type string $route Route to send the request to.
-	 * @type bool $blocking Block Execution Until the server response back or timeout.
 	 * }
 	 *
 	 * @return array|WP_Error   Array of results including HTTP headers or WP_Error if the request failed.
@@ -837,13 +1020,13 @@ final class SE_License_SDK_Client {
 			'route'    => '',
 			'body'     => [],
 			'method'   => 'POST',
-			'blocking' => false,
 			'timeout'  => 45, // phpcs:ignore WordPressVIPMinimum.Performance.RemoteRequestTimeout.timeout_timeout
 			'url'      => false,
 		] );
 
 		// Request URL
 		$url = $args['route'] ? esc_url_raw( $this->endpoint( $args['route'] ) ) : null;
+
 		if ( ! $url && $args['url'] && str_starts_with( $args['url'], 'https://' ) ) {
 			$url = $args['url'];
 			unset( $args['url'] );
@@ -881,13 +1064,6 @@ final class SE_License_SDK_Client {
 		 */
 		do_action( $this->getHookName( 'before_client_request_' . $args['route'] ), $args, $headers, $this->version, $url );
 
-		/**
-		 * Request Blocking mode.
-		 * Set it to true for debugging the response with after request action.
-		 *
-		 * @param bool $blocking
-		 */
-		$blocking = (bool) apply_filters( $this->getHookName( 'request_client_blocking_mode' ), $args['blocking'] );
 		$timeout  = $this->validate_timeout( $args );
 
 		// Body.
@@ -902,8 +1078,6 @@ final class SE_License_SDK_Client {
 			'locale'      => get_locale(),
 		] );
 
-		$updater_routes = [ 'package-info', 'check-update' ];
-
 		// Add license info for every request, if available.
 		if ( ! $this->is_free && $this->license() && $this->license()->get_key() && empty( $body['license'] ) ) {
 			$body['license'] = $this->license()->get_key();
@@ -916,7 +1090,7 @@ final class SE_License_SDK_Client {
 			'sslverify'   => $ssl_verify,
 			'redirection' => 5,
 			'httpversion' => '1.0',
-			'blocking'    => $blocking,
+			'blocking'    => true, // always true, as license server unable save data without blocking requests.
 			'headers'     => $headers,
 			'body'        => $body,
 			'cookies'     => [],
@@ -1230,6 +1404,14 @@ final class SE_License_SDK_Client {
 	 */
 	public function add_filter( string $hook_name, $callback, int $priority = 10, int $accepted_args = 1 ): bool {
 		return add_filter( $this->getHookName( $hook_name ), $callback, $priority, $accepted_args );
+	}
+
+	public function set_purchase_url( string $purchase_url = null ) {
+		$this->purchase_url = $purchase_url;
+	}
+
+	public function get_purchase_url() {
+		return $this->purchase_url;
 	}
 
 	/**

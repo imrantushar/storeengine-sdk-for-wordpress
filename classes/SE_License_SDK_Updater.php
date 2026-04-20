@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Class Updater
  * @package AbsolutePluginsServices
@@ -32,14 +33,22 @@ final class SE_License_SDK_Updater {
 	private $cache_key;
 
 	/**
+	 * Flag for disabling cache.
+	 *
+	 * @var false
+	 */
+	private $disable_cache = false;
+
+	/**
 	 * Initialize the class
 	 *
 	 * @param SE_License_SDK_Client $client The Client.
 	 * @param SE_License_SDK_License $license The license.
 	 */
 	public function __construct( SE_License_SDK_Client $client ) {
-		$this->client    = &$client;
-		$this->cache_key = $this->client->getHookName( 'version_info' );
+		$this->client        = &$client;
+		$this->cache_key     = $this->client->getHookName( 'version_info' );
+		$this->disable_cache = apply_filters( $this->client->getHookName( 'disable-updater-cache' ), false );
 	}
 
 	/**
@@ -52,14 +61,15 @@ final class SE_License_SDK_Updater {
 			return;
 		}
 
-		$fn = 'run_' . $this->client->getType() . '_hooks'; // run_(plugin/theme)_hooks
+		$this->did_init = true;
+		$method         = 'run_' . $this->client->getType() . '_hooks'; // run_(plugin/theme)_hooks
 
 		// Run the hooks.
-		if ( method_exists( $this, $fn ) ) {
-			$this->$fn();
+		if ( method_exists( $this, $method ) ) {
+			$this->$method();
 		}
 
-		$this->did_init = true;
+		add_action( 'init', [ $this, 'clear_package_cache' ], - 1 );
 	}
 
 	/**
@@ -167,9 +177,8 @@ final class SE_License_SDK_Updater {
 	private function get_cached_version_info( $which ) {
 		global $pagenow;
 
-
 		// If updater page then fetch from API now
-		if ( 'update-core.php' == $pagenow ) {
+		if ( 'update-core.php' == $pagenow || $this->disable_cache ) {
 			return false; // Force fetching update
 		}
 
@@ -192,6 +201,7 @@ final class SE_License_SDK_Updater {
 	private function set_cached_version_info( $value, $which ) {
 		if ( ! $value ) {
 			delete_transient( $this->cache_key . $which );
+
 			return;
 		}
 
@@ -204,6 +214,13 @@ final class SE_License_SDK_Updater {
 	 */
 	public function delete_cached_version_info() {
 		delete_transient( $this->cache_key );
+
+		if ( $this->client->isPlugin() ) {
+			delete_site_transient( 'update_plugins' );
+		} else {
+			delete_site_transient( 'update_themes' );
+		}
+
 		$actions = [ 'plugin_update', 'plugin_information', 'theme_update', 'theme_information' ];
 
 		foreach ( $actions as $which ) {
@@ -220,8 +237,6 @@ final class SE_License_SDK_Updater {
 	 * @return bool|array
 	 */
 	private function get_information( string $action, bool $force = false ) {
-
-		// cache first.
 		$project_info = $this->get_cached_version_info( $action );
 
 		if ( false === $project_info || $force ) {
@@ -239,12 +254,13 @@ final class SE_License_SDK_Updater {
 		// Server will provide update information without package/download link if license not available.
 		// For free version response will contain the package/download link.
 
+		$data = $this->client->get_admin_info();
+
+		// Channel
+		//$data['channel'] = 'beta';
+
 		// Update -> check-update,
-		$response = $this->client->request( [
-			'body'     => $this->client->get_admin_info(),
-			'route'    => 'check-update',
-			'blocking' => true
-		] );
+		$response = $this->client->request( [ 'body'  => $data, 'route' => 'check-update' ] );
 
 		if ( isset( $response['success'] ) && $response['success'] ) {
 			$data = $response['data'];
@@ -252,10 +268,10 @@ final class SE_License_SDK_Updater {
 			if ( 'plugin_update' !== $action ) {
 				// information -> package-info
 				$response = $this->client->request( [
-					'body'     => $this->client->get_admin_info(),
-					'route'    => 'package-info',
-					'blocking' => true
+					'body'  => $this->client->get_admin_info(),
+					'route' => 'package-info',
 				] );
+
 				if ( isset( $response['success'] ) && $response['success'] ) {
 					$data = array_merge( $data, $response['data'] );
 				}
@@ -320,6 +336,11 @@ final class SE_License_SDK_Updater {
 		return $this->get_information( 'theme_information', ! empty( $args->force ) );
 	}
 
+	public function clear_package_cache() {
+		add_action( $this->client->getHookName( 'license-activate' ), [ $this, 'delete_cached_version_info' ] );
+		add_action( $this->client->getHookName( 'license-deactivate' ), [ $this, 'delete_cached_version_info' ] );
+	}
+
 	/**
 	 * Typecast child element to array or object
 	 * Utility method
@@ -332,6 +353,7 @@ final class SE_License_SDK_Updater {
 	private function __children_to_array( $input, array $children = [] ) {
 		if ( ! empty( $children ) && is_array( $children ) && ( is_object( $input ) || is_array( $input ) ) ) {
 			$isObject = is_object( $input );
+
 			foreach ( $children as $child ) {
 				if ( call_user_func_array( $isObject ? 'property_exists' : 'array_key_exists', [ $input, $child ] ) ) {
 					if ( $isObject ) {

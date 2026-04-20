@@ -1,15 +1,32 @@
 {
     "name": "storeengine/wordpress-sdk",
-    "description": "StoreEngine license activation & insights sdk for WordPress plugin & theme.",
+    "description": "Official StoreEngine SDK for WordPress licensing and telemetry insights.",
     "homepage": "https://storeengine.pro",
     "type": "library",
     "license": "GPL-3.0-or-later",
+    "readme": "README.md",
     "authors": [
         {
             "name": "Kodezen Limited",
-            "email": "support@kodezen.com"
+            "email": "support@kodezen.com",
+            "role": "Maintainer"
+        },
+        {
+            "name": "Kudratullah",
+            "email": "hi@kudratullah.dev",
+            "role": "Lead Developer"
         }
     ],
+    "funding": [
+        {
+            "type": "custom",
+            "url": "https://storeengine.pro"
+        }
+    ],
+    "support": {
+        "source": "https://github.com/imrantushar/storeengine-sdk-for-wordpress",
+        "issues": "https://github.com/imrantushar/storeengine-sdk-for-wordpress/issues"
+    },
     "keywords": [
         "storeengine",
         "wordpress",
@@ -21,7 +38,7 @@
         "insights",
         "sdk"
     ],
-    "minimum-stability": "dev",
+    "minimum-stability": "stable",
     "prefer-stable": true,
     "require": {
         "php": ">=7.1"
@@ -32,21 +49,18 @@
         ]
     },
     "require-dev": {
-        "wp-coding-standards/wpcs": "dev-develop",
-        "dealerdirect/phpcodesniffer-composer-installer": "dev-main",
-        "squizlabs/php_codesniffer": "4.x-dev",
-        "phpcompatibility/php-compatibility": "10.x-dev",
-        "phpcompatibility/phpcompatibility-wp": "dev-master",
-        "szepeviktor/phpstan-wordpress": "2.x-dev",
-        "phpstan/extension-installer": "1.4.x-dev"
+        "wp-coding-standards/wpcs": "^3.0",
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+        "squizlabs/php_codesniffer": "^3.9",
+        "phpcompatibility/php-compatibility": "^9.3",
+        "phpcompatibility/phpcompatibility-wp": "^2.1",
+        "szepeviktor/phpstan-wordpress": "^2.0",
+        "phpstan/extension-installer": "^1.4"
     },
     "config": {
         "allow-plugins": {
             "dealerdirect/phpcodesniffer-composer-installer": true,
             "phpstan/extension-installer": true
-        },
-        "platform": {
-            "php": "8.0"
         }
     },
     "scripts": {
