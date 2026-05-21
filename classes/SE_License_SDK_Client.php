@@ -178,6 +178,13 @@ final class SE_License_SDK_Client {
 	 */
 	private $rest_api;
 
+	/**
+	 * Per-client update UI state (previous_version, last_install_*, etc.).
+	 *
+	 * @var ?SE_License_SDK_Update_State
+	 */
+	private $update_state;
+
 	private $js_param_name;
 
 	/**
@@ -769,6 +776,27 @@ final class SE_License_SDK_Client {
 		$this->updater = new SE_License_SDK_Updater( $this );
 
 		return $this->updater;
+	}
+
+	/**
+	 * Per-client update UI state store.
+	 */
+	public function update_state(): SE_License_SDK_Update_State {
+		if ( ! is_null( $this->update_state ) ) {
+			return $this->update_state;
+		}
+
+		$this->update_state = new SE_License_SDK_Update_State( $this );
+
+		return $this->update_state;
+	}
+
+	/**
+	 * Build a fresh Install_Job. A new job is created per install request so
+	 * each REST call gets its own job_id + log slot.
+	 */
+	public function new_install_job(): SE_License_SDK_Install_Job {
+		return new SE_License_SDK_Install_Job( $this );
 	}
 
 	public function get_js_params(): array {

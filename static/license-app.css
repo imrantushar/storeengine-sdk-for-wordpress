@@ -1,0 +1,321 @@
+/* StoreEngine SDK License + Updates panel. Scoped under .se-sdk-app so we
+   don't fight the WP admin global styles. Uses the host's primary color via
+   the --se-sdk-primary-color variable that License.php emits inline. */
+
+.se-sdk-app {
+	max-width: 1080px;
+	margin: 20px 0;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+	color: #1d2327;
+	position: relative;
+}
+
+.se-sdk-loading {
+	padding: 40px;
+	text-align: center;
+	color: #50575e;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+}
+
+/* Toast */
+.se-sdk-toast {
+	position: fixed;
+	top: 60px;
+	right: 24px;
+	z-index: 99999;
+	padding: 12px 20px;
+	border-radius: 6px;
+	background: #1d2327;
+	color: #fff;
+	box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+	max-width: 360px;
+}
+.se-sdk-toast-success { background: #00a32a; }
+.se-sdk-toast-error { background: #d63638; }
+
+/* Hero */
+.se-sdk-hero {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 20px 24px;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	flex-wrap: wrap;
+}
+.se-sdk-hero-left {
+	display: flex;
+	align-items: center;
+	gap: 20px;
+}
+.se-sdk-hero-version {
+	display: flex;
+	flex-direction: column;
+	min-width: 90px;
+}
+.se-sdk-hero-version-label {
+	font-size: 11px;
+	text-transform: uppercase;
+	color: #646970;
+	letter-spacing: 0.04em;
+}
+.se-sdk-hero-version-value {
+	font-size: 22px;
+	font-weight: 600;
+	color: #1d2327;
+}
+.se-sdk-hero-version-latest .se-sdk-hero-version-value {
+	color: var(--se-sdk-primary-color, #2271b1);
+}
+.se-sdk-hero-arrow {
+	font-size: 26px;
+	color: #c3c4c7;
+}
+.se-sdk-hero-right {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+.se-sdk-hero-checked {
+	font-size: 13px;
+	color: #646970;
+}
+
+/* Banners */
+.se-sdk-banner {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	padding: 16px 20px;
+	border-radius: 6px;
+	border: 1px solid #dcdcde;
+	background: #fff;
+}
+.se-sdk-banner-ok { border-left: 4px solid #00a32a; }
+.se-sdk-banner-update {
+	border-left: 4px solid var(--se-sdk-primary-color, #2271b1);
+	background: #f6fbff;
+}
+.se-sdk-banner-rollback { border-left: 4px solid #b26200; background: #fffaf2; }
+
+.se-sdk-banner-icon {
+	font-size: 20px;
+	line-height: 1;
+	flex-shrink: 0;
+	margin-top: 2px;
+}
+.se-sdk-banner-main {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	flex-wrap: wrap;
+}
+.se-sdk-banner-message strong {
+	display: block;
+	font-size: 15px;
+	margin-bottom: 4px;
+}
+.se-sdk-banner-sub {
+	font-size: 13px;
+	color: #50575e;
+	max-width: 60ch;
+}
+.se-sdk-banner-actions {
+	display: flex;
+	gap: 8px;
+}
+
+/* Progress + log */
+.se-sdk-install-progress {
+	flex-basis: 100%;
+	margin-top: 12px;
+}
+.se-sdk-progress-bar {
+	height: 6px;
+	background: #e0e0e0;
+	border-radius: 3px;
+	overflow: hidden;
+	margin-bottom: 10px;
+	position: relative;
+}
+.se-sdk-progress-fill {
+	height: 100%;
+	width: 30%;
+	background: var(--se-sdk-primary-color, #2271b1);
+	border-radius: 3px;
+	animation: se-sdk-progress 1.4s infinite ease-in-out;
+}
+@keyframes se-sdk-progress {
+	0%   { left: -30%; transform: translateX(0); position: relative; }
+	100% { left: 100%; transform: translateX(0); position: relative; }
+}
+.se-sdk-log-drawer {
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	padding: 8px 12px;
+}
+.se-sdk-log-drawer summary {
+	cursor: pointer;
+	font-size: 13px;
+	color: #50575e;
+}
+.se-sdk-log-list {
+	margin: 8px 0 0;
+	padding: 0;
+	list-style: none;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	font-size: 12px;
+	max-height: 220px;
+	overflow-y: auto;
+}
+.se-sdk-log-list li {
+	padding: 2px 0;
+	display: flex;
+	gap: 8px;
+}
+.se-sdk-log-level {
+	text-transform: uppercase;
+	font-size: 10px;
+	width: 60px;
+	flex-shrink: 0;
+	color: #646970;
+}
+.se-sdk-log-error .se-sdk-log-level { color: #d63638; }
+.se-sdk-log-warning .se-sdk-log-level { color: #b26200; }
+.se-sdk-log-msg { color: #1d2327; word-break: break-word; }
+
+/* Card */
+.se-sdk-card {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	padding: 20px 24px;
+}
+.se-sdk-card h2 {
+	margin: 0 0 4px;
+	font-size: 16px;
+	font-weight: 600;
+}
+.se-sdk-card-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 14px;
+}
+
+/* Pills */
+.se-sdk-pill {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 999px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	background: #e0e0e0;
+	color: #1d2327;
+	vertical-align: middle;
+	margin-left: 6px;
+}
+.se-sdk-pill-ok { background: #d1ecd9; color: #00450c; }
+.se-sdk-pill-warn { background: #fcd8d8; color: #720000; }
+.se-sdk-pill-current { background: var(--se-sdk-primary-color, #2271b1); color: #fff; }
+.se-sdk-pill-released { background: #d1ecd9; color: #00450c; }
+.se-sdk-pill-beta-released { background: #fff3cd; color: #6b4f00; }
+.se-sdk-pill-unreleased { background: #e0e0e0; color: #50575e; }
+
+/* License */
+.se-sdk-key-display code {
+	display: inline-block;
+	padding: 6px 12px;
+	background: #f0f0f1;
+	border-radius: 4px;
+	font-size: 14px;
+}
+.se-sdk-license-meta {
+	font-size: 13px;
+	color: #50575e;
+	margin-top: 8px;
+}
+.se-sdk-help {
+	font-size: 13px;
+	color: #646970;
+	margin: 8px 0;
+}
+.se-sdk-input-row {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin-top: 8px;
+	flex-wrap: wrap;
+}
+.se-sdk-input {
+	flex: 1;
+	min-width: 240px;
+}
+.se-sdk-error {
+	margin-top: 10px;
+	padding: 8px 12px;
+	background: #fcf0f1;
+	border-left: 3px solid #d63638;
+	color: #720000;
+	font-size: 13px;
+}
+
+/* Versions table */
+.se-sdk-versions-table {
+	margin-top: 12px;
+}
+.se-sdk-versions-table th,
+.se-sdk-versions-table td {
+	vertical-align: middle;
+}
+.se-sdk-col-actions {
+	text-align: right;
+	width: 180px;
+}
+.se-sdk-confirm-row td {
+	background: #fffaf2;
+	border-top: 1px solid #b26200;
+}
+.se-sdk-confirm-box {
+	padding: 8px 4px;
+}
+.se-sdk-confirm-box strong {
+	color: #b26200;
+}
+.se-sdk-confirm-actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 12px;
+}
+
+/* Settings */
+.se-sdk-setting-row {
+	padding: 12px 0;
+	border-bottom: 1px solid #f0f0f1;
+}
+.se-sdk-setting-row:last-child {
+	border-bottom: none;
+}
+.se-sdk-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	cursor: pointer;
+}
+.se-sdk-label {
+	display: block;
+	font-weight: 500;
+	margin-bottom: 6px;
+}

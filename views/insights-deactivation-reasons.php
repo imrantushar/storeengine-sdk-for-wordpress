@@ -30,15 +30,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 					'<strong>' . esc_html( $this->client->getPackageName() ) . '</strong>',
 				); ?>
 			</div>
-			<div class="se-sdk-deactivation-modal--open-ticket">
-				<span><?php esc_html_e( 'If you face any issues, please create a support ticket', 'storeengine-sdk' ); ?></span>
-				<button class="open-ticket-form">
-					<?php esc_html_e( 'Open a Ticket', 'storeengine-sdk' ); ?>
-					<svg width="6" height="10" viewBox="0 0 6 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-						<path d="M0.528636 0.528636C0.788986 0.268287 1.211 0.268287 1.47134 0.528636L5.47134 4.52864C5.73169 4.78899 5.73169 5.211 5.47134 5.47134L1.47134 9.47134C1.211 9.7317 0.788986 9.7317 0.528636 9.47134C0.268287 9.211 0.268287 8.78899 0.528636 8.52864L4.05728 4.99999L0.528636 1.47134C0.268287 1.211 0.268287 0.788986 0.528636 0.528636Z"/>
-					</svg>
-				</button>
-			</div>
+			<?php if ( ! empty( $showSupportTicket ) && ! empty( $this->supportURL ) ) { ?>
+				<div class="se-sdk-deactivation-modal--open-ticket">
+					<span><?php esc_html_e( 'If you face any issues, please create a support ticket', 'storeengine-sdk' ); ?></span>
+					<a class="open-ticket-link" href="<?php echo esc_url( $this->supportURL ); ?>" target="_blank" rel="noopener noreferrer">
+						<?php esc_html_e( 'Open a Ticket', 'storeengine-sdk' ); ?>
+						<svg width="6" height="10" viewBox="0 0 6 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+							<path d="M0.528636 0.528636C0.788986 0.268287 1.211 0.268287 1.47134 0.528636L5.47134 4.52864C5.73169 4.78899 5.73169 5.211 5.47134 5.47134L1.47134 9.47134C1.211 9.7317 0.788986 9.7317 0.528636 9.47134C0.268287 9.211 0.268287 8.78899 0.528636 8.52864L4.05728 4.99999L0.528636 1.47134C0.268287 1.211 0.268287 0.788986 0.528636 0.528636Z"/>
+						</svg>
+					</a>
+				</div>
+			<?php } ?>
 			<ul class="reasons">
 				<?php foreach ( $reasons as $reason ) { ?>
 					<li class="reason-item" data-type="<?php echo esc_attr( $reason['type'] ); ?>" data-placeholder="<?php echo esc_attr( $reason['placeholder'] ); ?>">
@@ -51,7 +53,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 		
 		</div>
 		<div class="se-sdk-deactivation-modal--footer">
-			<button class="button send-reason" disabled><?php esc_html_e( 'Submit & Deactivate', 'storeengine-sdk' ); ?></button>
+			<button class="button send-reason"><?php esc_html_e( 'Submit & Deactivate', 'storeengine-sdk' ); ?></button>
 			<button class="button button-link dont-bother-me"><?php esc_html_e( 'Skip & Deactivate', 'storeengine-sdk' ); ?></button>
 		</div>
 	</div>

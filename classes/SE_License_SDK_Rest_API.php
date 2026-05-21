@@ -78,6 +78,78 @@ final class SE_License_SDK_Rest_API {
 					'force' => [ 'type' => 'boolean', 'default' => false ],
 				],
 			] );
+
+			register_rest_route( self::NAMESPACE, '/' . $slug . '/updates/status', [
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => [ $this, 'updates_status' ],
+				'permission_callback' => [ $this, 'permissions_check' ],
+			] );
+
+			register_rest_route( self::NAMESPACE, '/' . $slug . '/updates/check-now', [
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => [ $this, 'updates_check_now' ],
+				'permission_callback' => [ $this, 'permissions_check' ],
+			] );
+
+			register_rest_route( self::NAMESPACE, '/' . $slug . '/updates/versions', [
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => [ $this, 'updates_versions' ],
+				'permission_callback' => [ $this, 'permissions_check' ],
+			] );
+
+			register_rest_route( self::NAMESPACE, '/' . $slug . '/updates/install', [
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => [ $this, 'updates_install' ],
+				'permission_callback' => [ $this, 'permissions_check' ],
+				'args'                => [
+					'version' => [
+						'type'              => 'string',
+						'required'          => false, // null means "latest"
+						'sanitize_callback' => 'sanitize_text_field',
+					],
+				],
+			] );
+
+			register_rest_route( self::NAMESPACE, '/' . $slug . '/updates/rollback', [
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => [ $this, 'updates_rollback' ],
+				'permission_callback' => [ $this, 'permissions_check' ],
+			] );
+
+			register_rest_route( self::NAMESPACE, '/' . $slug . '/settings/beta-channel', [
+				[
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => [ $this, 'get_beta_channel' ],
+					'permission_callback' => [ $this, 'permissions_check' ],
+				],
+				[
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => [ $this, 'set_beta_channel' ],
+					'permission_callback' => [ $this, 'permissions_check' ],
+					'args'                => [
+						'enabled' => [ 'type' => 'boolean', 'required' => true ],
+					],
+				],
+			] );
+
+			register_rest_route( self::NAMESPACE, '/' . $slug . '/settings/auto-update-window', [
+				[
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => [ $this, 'get_auto_update_window' ],
+					'permission_callback' => [ $this, 'permissions_check' ],
+				],
+				[
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => [ $this, 'set_auto_update_window' ],
+					'permission_callback' => [ $this, 'permissions_check' ],
+					'args'                => [
+						'window' => [
+							'type'              => [ 'string', 'null' ],
+							'sanitize_callback' => 'sanitize_text_field',
+						],
+					],
+				],
+			] );
 		}
 
 		register_rest_route( self::NAMESPACE, '/' . $slug . '/insights/optin', [
@@ -189,6 +261,298 @@ final class SE_License_SDK_Rest_API {
 		}
 
 		return rest_ensure_response( $update );
+	}
+
+	/**
+	 * GET /updates/status — current state for the React panel hero.
+	 */
+	public function updates_status() {
+		$state    = $this->client->update_state()->all();
+		$update   = $this->get_cached_update();
+		$current  = $this->client->getProjectVersion();
+		$latest   = $update && ! empty( $update->new_version ) ? $update->new_version : $current;
+		$available = $latest && version_compare( $current, $latest, '<' );
+
+		return rest_ensure_response( [
+			'current_version'    => $current,
+			'latest_version'     => $latest,
+			'update_available'   => $available,
+			'last_checked_at'    => $state['last_checked_at'],
+			'previous_version'   => $state['previous_version'],
+			'last_install'       => [
+				'at'          => $state['last_install_at'],
+				'status'      => $state['last_install_status'],
+				'target'      => $state['last_install_target'],
+				'is_rollback' => $state['last_install_is_rollback'],
+			],
+			'last_install_log'   => $this->client->new_install_job()->get_last_log(),
+			'beta_enabled'       => (bool) $state['beta_enabled'],
+			'auto_update_window' => $state['auto_update_window'],
+			'changelog'          => $update && ! empty( $update->upgrade_notice ) ? $update->upgrade_notice : null,
+			'package_url'        => $update && ! empty( $update->package ) ? $update->package : null,
+		] );
+	}
+
+	/**
+	 * POST /updates/check-now — bust the local cache and re-query the server.
+	 */
+	public function updates_check_now() {
+		$info = $this->client->updater()->force_check();
+
+		if ( ! $info ) {
+			return new WP_Error(
+				'sdk-check-update-failed',
+				__( 'Could not fetch update information from the server.', 'storeengine-sdk' ),
+				[ 'status' => 502 ]
+			);
+		}
+
+		return $this->updates_status();
+	}
+
+	/**
+	 * GET /updates/versions — proxy the server's version history.
+	 */
+	public function updates_versions() {
+		if ( $this->client->isFree() ) {
+			$body = [];
+		} else {
+			$body = [ 'license' => $this->client->license()->get_key() ];
+		}
+
+		$response = $this->client->request( [
+			'body'  => $body,
+			'route' => 'versions',
+		] );
+
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		// Server's /software/* responses come back wrapped in success/data
+		// for known routes (Client::request line 1131). /versions isn't in
+		// that list yet, so the response is raw wp_remote_request output.
+		if ( isset( $response['success'] ) ) {
+			if ( ! $response['success'] ) {
+				return new WP_Error(
+					$response['code'] ?? 'sdk-versions-failed',
+					$response['error'] ?? __( 'Could not fetch version history.', 'storeengine-sdk' ),
+					[ 'status' => 502 ]
+				);
+			}
+
+			return rest_ensure_response( $response['data'] );
+		}
+
+		// Raw response — decode body.
+		$body = wp_remote_retrieve_body( $response );
+		$data = json_decode( $body, true );
+
+		return rest_ensure_response( is_array( $data ) ? $data : [] );
+	}
+
+	/**
+	 * POST /updates/install — install a specific version (or "latest" when
+	 * no version param is provided). Same code path serves updates and
+	 * rollbacks; the server's /software/get-package endpoint enforces the
+	 * per-version allow_rollback flag.
+	 */
+	public function updates_install( WP_REST_Request $request ) {
+		$current        = $this->client->getProjectVersion();
+		$target_version = $request->get_param( 'version' );
+
+		// "Latest" path: ask the server what the latest released version is.
+		if ( ! $target_version ) {
+			$info = $this->client->updater()->force_check();
+
+			if ( ! $info || empty( $info->new_version ) ) {
+				return new WP_Error(
+					'sdk-no-update-available',
+					__( 'No update is available right now.', 'storeengine-sdk' ),
+					[ 'status' => 409 ]
+				);
+			}
+
+			$package_url    = ! empty( $info->package ) ? $info->package : null;
+			$target_version = $info->new_version;
+		} else {
+			$package_url = $this->resolve_package_url( $target_version, $current );
+
+			if ( is_wp_error( $package_url ) ) {
+				return $package_url;
+			}
+		}
+
+		if ( ! $package_url ) {
+			return new WP_Error(
+				'sdk-no-package-url',
+				__( 'Server did not return a download URL for the requested version.', 'storeengine-sdk' ),
+				[ 'status' => 502 ]
+			);
+		}
+
+		$job    = $this->client->new_install_job();
+		$result = $job->install_from_url( $package_url, $target_version, $current );
+
+		if ( is_wp_error( $result ) ) {
+			$this->client->update_state()->record_install( $target_version, $current, 'failed', false );
+
+			return $result;
+		}
+
+		$this->client->update_state()->record_install(
+			$target_version,
+			$current,
+			'succeeded',
+			(bool) $result['is_rollback']
+		);
+
+		return rest_ensure_response( $result );
+	}
+
+	/**
+	 * POST /updates/rollback — one-click revert to the previously installed
+	 * version recorded by the SDK. If no previous_version is recorded the
+	 * client should redirect the user to the version-history table instead.
+	 */
+	public function updates_rollback() {
+		$previous = $this->client->update_state()->get( 'previous_version' );
+
+		if ( ! $previous ) {
+			return new WP_Error(
+				'sdk-no-previous-version',
+				__( 'No previous version is recorded for this installation.', 'storeengine-sdk' ),
+				[ 'status' => 409 ]
+			);
+		}
+
+		// Delegate to updates_install with the previous version pre-filled.
+		$request = new WP_REST_Request( 'POST', '' );
+		$request->set_param( 'version', $previous );
+
+		return $this->updates_install( $request );
+	}
+
+	/**
+	 * GET /settings/beta-channel — return the local mirror.
+	 */
+	public function get_beta_channel() {
+		return rest_ensure_response( [
+			'enabled' => (bool) $this->client->update_state()->get( 'beta_enabled', false ),
+		] );
+	}
+
+	/**
+	 * POST /settings/beta-channel — toggle and sync to the server.
+	 */
+	public function set_beta_channel( WP_REST_Request $request ) {
+		$enabled = (bool) $request->get_param( 'enabled' );
+
+		$response = $this->client->request( [
+			'body'  => [ 'enabled' => $enabled ],
+			'route' => 'beta-channel',
+		] );
+
+		// Mirror locally even if the server is unreachable so the UI stays
+		// responsive; the server will reconcile on the next /check-update.
+		$this->client->update_state()->set( [ 'beta_enabled' => $enabled ] );
+
+		// Invalidate the cached update info so the next status call hits
+		// the right channel.
+		$this->client->updater()->delete_cached_version_info();
+
+		return rest_ensure_response( [
+			'enabled'        => $enabled,
+			'server_synced'  => ! is_wp_error( $response ),
+		] );
+	}
+
+	public function get_auto_update_window() {
+		return rest_ensure_response( [
+			'window' => $this->client->update_state()->get( 'auto_update_window' ),
+		] );
+	}
+
+	public function set_auto_update_window( WP_REST_Request $request ) {
+		$window = $request->get_param( 'window' );
+		$window = $window ? sanitize_text_field( $window ) : null;
+
+		$response = $this->client->request( [
+			'body'  => [ 'window' => $window ],
+			'route' => 'schedule-update',
+		] );
+
+		$this->client->update_state()->set( [ 'auto_update_window' => $window ] );
+
+		return rest_ensure_response( [
+			'window'        => $window,
+			'server_synced' => ! is_wp_error( $response ),
+		] );
+	}
+
+	/**
+	 * Read the cached version-info transient so /updates/status doesn't
+	 * fire a remote request on every poll. The Updater's check_plugin_update
+	 * already populates this on the WP cron path.
+	 *
+	 * @return object|null
+	 */
+	private function get_cached_update() {
+		$which = $this->client->isPlugin() ? 'plugin_update' : 'theme_update';
+		$key   = $this->client->getHookName( 'version_info' ) . $which;
+		$info  = get_transient( $key );
+
+		return is_object( $info ) && isset( $info->new_version ) ? $info : null;
+	}
+
+	/**
+	 * Hit /software/get-package on the license server to resolve a signed
+	 * URL for a specific version. The server enforces beta gating and
+	 * per-version allow_rollback for downgrades.
+	 *
+	 * @return string|WP_Error
+	 */
+	private function resolve_package_url( string $target_version, string $current_version ) {
+		$body = [
+			'version'         => $target_version,
+			'current_version' => $current_version,
+		];
+
+		if ( ! $this->client->isFree() ) {
+			$body['license'] = $this->client->license()->get_key();
+		}
+
+		$response = $this->client->request( [
+			'body'  => $body,
+			'route' => 'get-package',
+		] );
+
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		// /get-package isn't in Client::request's wrapped-route allowlist,
+		// so we get back the raw wp_remote_request response.
+		$code = wp_remote_retrieve_response_code( $response );
+		$body = json_decode( wp_remote_retrieve_body( $response ), true );
+
+		if ( $code >= 400 ) {
+			return new WP_Error(
+				$body['code'] ?? 'sdk-get-package-failed',
+				$body['message'] ?? __( 'Could not resolve a download URL for the requested version.', 'storeengine-sdk' ),
+				[ 'status' => $code ]
+			);
+		}
+
+		if ( empty( $body['package'] ) ) {
+			return new WP_Error(
+				'sdk-no-package-url',
+				__( 'Server response is missing a package URL.', 'storeengine-sdk' ),
+				[ 'status' => 502 ]
+			);
+		}
+
+		return (string) $body['package'];
 	}
 
 	/**

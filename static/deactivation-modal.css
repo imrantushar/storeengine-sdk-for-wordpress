@@ -412,9 +412,10 @@ div:not(.helper-text).mui-error {
 	font-size: 11px;
 }
 
+.se-sdk-deactivation-modal--open-ticket a,
 .se-sdk-deactivation-modal--open-ticket button,
 .se-sdk-deactivation-modal .button {
-	display: flex;
+	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	padding: 2px 14px;
@@ -427,6 +428,7 @@ div:not(.helper-text).mui-error {
 	border-radius: 4px;
 }
 
+.se-sdk-deactivation-modal--open-ticket a,
 .se-sdk-deactivation-modal--open-ticket button {
 	gap: 8px;
 	margin-top: 12px;
@@ -445,6 +447,18 @@ div:not(.helper-text).mui-error {
 	box-shadow: inset 1px 1px 12px -1px #00000040;
 }
 
+.se-sdk-deactivation-modal--open-ticket a:hover,
+.se-sdk-deactivation-modal--open-ticket button:hover {
+	color: #fff;
+	background: var(--se-sdk-primary-color, #008DFF);
+}
+
+.se-sdk-deactivation-modal--open-ticket a:hover svg path,
+.se-sdk-deactivation-modal--open-ticket button:hover svg path {
+	fill: #fff;
+}
+
+.se-sdk-deactivation-modal--open-ticket a:focus,
 .se-sdk-deactivation-modal--open-ticket button:focus,
 .se-sdk-deactivation-modal .button:focus {
 	box-shadow: 0 0 0 1px #fff, 0 0 0 3px var(--se-sdk-primary-color, #008DFF);
@@ -452,7 +466,8 @@ div:not(.helper-text).mui-error {
 
 .se-sdk-deactivation-modal .button.button-link,
 .se-sdk-deactivation-modal button.button-link {
-	color: #454F59;
+	color: var(--se-sdk-muted-color, #738496);
+	font-weight: 400;
 	background: transparent;
 	border-color: transparent;
 }
@@ -469,7 +484,8 @@ div:not(.helper-text).mui-error {
 	box-shadow: 0 0 0 1px #fff, 0 0 0 3px currentColor;
 }
 
-.se-sdk-deactivation-modal .open-ticket-form svg path {
+.se-sdk-deactivation-modal .open-ticket-form svg path,
+.se-sdk-deactivation-modal .open-ticket-link svg path {
 	fill: var(--se-sdk-primary-color, #008DFF);
 }
 

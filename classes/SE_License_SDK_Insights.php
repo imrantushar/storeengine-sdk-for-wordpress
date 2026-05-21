@@ -1211,7 +1211,7 @@ final class SE_License_SDK_Insights {
 		$reasons           = $this->__get_uninstall_reasons();
 		$admin_user        = $this->client->get_admin_data();
 		$displayName       = $admin_user->first_name ? trim( $admin_user->first_name . ' ' . $admin_user->last_name ) : $admin_user->display_name;
-		$showSupportTicket = $this->ticketTemplate && $this->ticketRecipient;
+		$showSupportTicket = ! empty( $this->supportURL );
 		?>
 		<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> se-sdk-deactivation-modal"
 			 id="<?php echo esc_attr( $this->client->getSlug() ); ?>-se-sdk-deactivation-modal"
@@ -1226,10 +1226,6 @@ final class SE_License_SDK_Insights {
 			 role="dialog" aria-modal="true"
 			 style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>; --se-sdk-danger-color: #f02e5e; --se-sdk-text-color: #141A24; --se-sdk-muted-color: #738496; --se-sdk-border-color: #eeeeee;">
 			<?php
-			if ( $showSupportTicket ) {
-				include __DIR__ . '/../views/insights-support-ticket-form.php';
-			}
-
 			include __DIR__ . '/../views/insights-deactivation-reasons.php';
 			?>
 		</div>

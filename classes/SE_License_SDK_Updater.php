@@ -70,6 +70,11 @@ final class SE_License_SDK_Updater {
 		}
 
 		add_action( 'init', [ $this, 'clear_package_cache' ], - 1 );
+
+		// Capture upgrades performed by WP itself (cron, plugins.php "update
+		// now" link, our own Install_Job) so the SDK can offer a one-click
+		// rollback to the previous version.
+		add_action( 'upgrader_process_complete', [ $this, 'record_previous_version' ], 10, 2 );
 	}
 
 	/**
@@ -263,6 +268,10 @@ final class SE_License_SDK_Updater {
 		$response = $this->client->request( [ 'body'  => $data, 'route' => 'check-update' ] );
 
 		if ( isset( $response['success'] ) && $response['success'] ) {
+			// Stamp the local "last checked" timestamp so the UI can render
+			// "checked 2 minutes ago" without polling the server.
+			( new SE_License_SDK_Update_State( $this->client ) )->record_check();
+
 			$data = $response['data'];
 
 			if ( 'plugin_update' !== $action ) {
@@ -339,6 +348,84 @@ final class SE_License_SDK_Updater {
 	public function clear_package_cache() {
 		add_action( $this->client->getHookName( 'license-activate' ), [ $this, 'delete_cached_version_info' ] );
 		add_action( $this->client->getHookName( 'license-deactivate' ), [ $this, 'delete_cached_version_info' ] );
+	}
+
+	/**
+	 * Force a fresh update check by clearing the local transient and
+	 * re-querying the server with the `force` flag. Returns the same
+	 * structure as get_information() so callers can use it interchangeably.
+	 *
+	 * @return object|bool
+	 */
+	public function force_check() {
+		$this->delete_cached_version_info();
+
+		// Tell get_updates() to send `force=true` to the server via the
+		// before_client_request_check-update hook. Channel-aware (server
+		// also honours the per-installation beta_enabled flag).
+		add_filter( $this->client->getHookName( 'before_client_request_check-update' ), [ $this, 'inject_force_param' ], 10, 2 );
+
+		$info = $this->get_information( $this->client->isPlugin() ? 'plugin_update' : 'theme_update', true );
+
+		remove_filter( $this->client->getHookName( 'before_client_request_check-update' ), [ $this, 'inject_force_param' ], 10 );
+
+		return $info;
+	}
+
+	/**
+	 * Hook callback used by force_check() to flag the outgoing /check-update
+	 * request body as a forced refresh. Not used outside force_check().
+	 *
+	 * @param array $args
+	 *
+	 * @return array
+	 */
+	public function inject_force_param( $args ) {
+		if ( ! isset( $args['body'] ) || ! is_array( $args['body'] ) ) {
+			$args['body'] = [];
+		}
+
+		$args['body']['force'] = true;
+
+		return $args;
+	}
+
+	/**
+	 * Record `previous_version` after WP / our installer upgrades the host
+	 * plugin. Powers the "Roll back to v1.9.1" shortcut in the UI.
+	 *
+	 * @param WP_Upgrader $upgrader
+	 * @param array $hook_extra
+	 */
+	public function record_previous_version( $upgrader, $hook_extra ) {
+		if ( empty( $hook_extra['type'] ) || 'plugin' !== $hook_extra['type'] ) {
+			return;
+		}
+
+		if ( empty( $hook_extra['plugins'] ) && empty( $hook_extra['plugin'] ) ) {
+			return;
+		}
+
+		$updated = [];
+		if ( ! empty( $hook_extra['plugins'] ) && is_array( $hook_extra['plugins'] ) ) {
+			$updated = $hook_extra['plugins'];
+		} elseif ( ! empty( $hook_extra['plugin'] ) ) {
+			$updated = [ $hook_extra['plugin'] ];
+		}
+
+		if ( ! in_array( $this->client->getBasename(), $updated, true ) ) {
+			return;
+		}
+
+		// At this point the new code is already on disk, so reading the
+		// header here would return the *new* version. The pre-install
+		// version is whatever the SDK booted with on this request.
+		$previous = $this->client->getProjectVersion();
+
+		( new SE_License_SDK_Update_State( $this->client ) )->set( [
+			'previous_version' => $previous,
+			'last_install_at'  => time(),
+		] );
 	}
 
 	/**

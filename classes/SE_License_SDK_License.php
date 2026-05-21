@@ -562,6 +562,9 @@ final class SE_License_SDK_License {
 	 * @return void
 	 */
 	public function render_menu_page() {
+		$mount_id = 'se-sdk-license-app-' . sanitize_html_class( $this->client->getSlug() );
+
+		$this->enqueue_license_app( $mount_id );
 		?>
 		<div class="se-sdk-product-<?php echo esc_attr( $this->client->getSlug() ); ?> wrap se-sdk-license-settings-wrapper"
 			 style="--se-sdk-primary-color: <?php echo esc_attr( $this->client->getPrimaryColor() ); ?>;">
@@ -571,9 +574,81 @@ final class SE_License_SDK_License {
 						esc_html( $this->client->getPackageName() )
 				); ?></h1>
 			<hr class="wp-header-end">
-			<?php $this->render_license_page(); ?>
+
+			<?php
+			/**
+			 * Skip the React panel entirely. Filter return true to fall back
+			 * to the PHP form (useful for SSR debugging or hosts where
+			 * wp.element isn't available).
+			 *
+			 * @param bool $disabled
+			 */
+			$react_disabled = (bool) apply_filters( $this->client->getHookName( 'disable_react_panel' ), false );
+
+			if ( ! $react_disabled && $this->client->maybe_init_restapi() ) :
+				?>
+				<div id="<?php echo esc_attr( $mount_id ); ?>" class="se-sdk-app-mount"></div>
+				<noscript>
+					<div class="se-sdk-noscript">
+						<p><?php esc_html_e( 'JavaScript is required for the full license & updates panel. The simplified form below still works.', 'storeengine-sdk' ); ?></p>
+						<?php $this->render_license_page(); ?>
+					</div>
+				</noscript>
+				<?php
+			else :
+				$this->render_license_page();
+			endif;
+			?>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Enqueue the React panel + its config. Called from render_menu_page()
+	 * so it only fires on the license page, not on every admin screen.
+	 */
+	private function enqueue_license_app( string $mount_id ): void {
+		$handle = 'se-sdk-license-app-' . sanitize_html_class( $this->client->getSlug() );
+
+		wp_enqueue_style(
+			$handle,
+			SE_License_SDK::sdk_url( 'static/license-app.css' ),
+			[],
+			$this->client->getVersion()
+		);
+
+		wp_enqueue_script(
+			$handle,
+			SE_License_SDK::sdk_url( 'static/license-app.js' ),
+			[ 'wp-element', 'wp-i18n' ],
+			$this->client->getVersion(),
+			true
+		);
+
+		$is_free = $this->client->isFree();
+
+		// Surface only the bits the React app actually needs — never echo
+		// raw license data; the JS calls /license/status itself.
+		$config = [
+			'mountId'        => $mount_id,
+			'slug'           => $this->client->getSlug(),
+			'packageName'    => $this->client->getPackageName(),
+			'currentVersion' => $this->client->getProjectVersion(),
+			'isFree'         => $is_free,
+			'restUrl'        => trailingslashit( rest_url( 'storeengine-sdk/v1/' . $this->client->getSlug() ) ),
+			'nonce'          => wp_create_nonce( 'wp_rest' ),
+			'initialLicense' => $is_free ? null : $this->get_public_data(),
+		];
+
+		// Per-instance global so multiple SDK consumers on the same page
+		// (e.g. plugin + addon) don't clobber each other's config.
+		$var_name = 'seSdkLicenseAppConfig_' . preg_replace( '/[^A-Za-z0-9_]/', '_', $this->client->getSlug() );
+
+		wp_add_inline_script(
+			$handle,
+			sprintf( 'window.%s = %s;', $var_name, wp_json_encode( $config ) ),
+			'before'
+		);
 	}
 
 	public function render_license_page() {
