@@ -630,14 +630,16 @@ final class SE_License_SDK_License {
 		// Surface only the bits the React app actually needs — never echo
 		// raw license data; the JS calls /license/status itself.
 		$config = [
-			'mountId'        => $mount_id,
-			'slug'           => $this->client->getSlug(),
-			'packageName'    => $this->client->getPackageName(),
-			'currentVersion' => $this->client->getProjectVersion(),
-			'isFree'         => $is_free,
-			'restUrl'        => trailingslashit( rest_url( 'storeengine-sdk/v1/' . $this->client->getSlug() ) ),
-			'nonce'          => wp_create_nonce( 'wp_rest' ),
-			'initialLicense' => $is_free ? null : $this->get_public_data(),
+			'mountId'           => $mount_id,
+			'slug'              => $this->client->getSlug(),
+			'packageName'       => $this->client->getPackageName(),
+			'currentVersion'    => $this->client->getProjectVersion(),
+			'isFree'            => $is_free,
+			'restUrl'           => trailingslashit( rest_url( 'storeengine-sdk/v1/' . $this->client->getSlug() ) ),
+			'nonce'             => wp_create_nonce( 'wp_rest' ),
+			'initialLicense'    => $is_free ? null : $this->get_public_data(),
+			'storeDashboardUrl' => $this->manage_license_url ?: null,
+			'purchaseUrl'       => $this->client->get_purchase_url() ?: null,
 		];
 
 		// Per-instance global so multiple SDK consumers on the same page
