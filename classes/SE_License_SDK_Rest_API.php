@@ -344,9 +344,30 @@ final class SE_License_SDK_Rest_API {
 			return rest_ensure_response( $response['data'] );
 		}
 
-		// Raw response — decode body.
+		// Raw response — decode body + check HTTP status.
+		$code = wp_remote_retrieve_response_code( $response );
 		$body = wp_remote_retrieve_body( $response );
 		$data = json_decode( $body, true );
+
+		// The remote server may be running an older license-management
+		// addon that doesn't expose /software/versions. Surface that
+		// distinctly so the UI can show a helpful message instead of an
+		// ambiguous "no versions available" state.
+		if ( 404 === (int) $code || ( is_array( $data ) && 'rest_no_route' === ( $data['code'] ?? '' ) ) ) {
+			return new WP_Error(
+				'sdk-server-version-list-unsupported',
+				__( 'The license server does not yet support listing version history. The vendor needs to update the License Management addon on the server.', 'storeengine-sdk' ),
+				[ 'status' => 501 ]
+			);
+		}
+
+		if ( $code >= 400 ) {
+			return new WP_Error(
+				$data['code'] ?? 'sdk-versions-failed',
+				$data['message'] ?? __( 'Could not fetch version history.', 'storeengine-sdk' ),
+				[ 'status' => $code ]
+			);
+		}
 
 		return rest_ensure_response( is_array( $data ) ? $data : [] );
 	}

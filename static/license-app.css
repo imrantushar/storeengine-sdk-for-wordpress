@@ -272,6 +272,37 @@
 	font-size: 13px;
 }
 
+/* Empty / soft-empty state in cards */
+.se-sdk-empty-state {
+	padding: 20px;
+	margin-top: 12px;
+	background: #f6f7f7;
+	border: 1px dashed #c3c4c7;
+	border-radius: 6px;
+	text-align: center;
+}
+.se-sdk-empty-state p {
+	margin: 0 0 6px;
+}
+.se-sdk-empty-state p:last-child {
+	margin-bottom: 0;
+}
+.se-sdk-empty-state-soft {
+	background: #fffaf2;
+	border: 1px dashed #dab885;
+	color: #6b4f00;
+}
+
+.se-sdk-card-subtitle {
+	margin: 4px 0 0 !important;
+	font-size: 12px;
+	color: #646970;
+}
+
+.se-sdk-refresh-btn {
+	align-self: flex-start;
+}
+
 /* Versions table */
 .se-sdk-versions-table {
 	margin-top: 12px;

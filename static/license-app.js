@@ -233,27 +233,84 @@
 	}
 
 	function VersionsTable( props ) {
-		const { versions, loading, installing, onInstall, current } = props;
+		const { versions, loading, installing, onInstall, current, onRefresh, refreshing, error } = props;
 		const [ confirming, setConfirming ] = useState( null );
+
+		const header = h( 'div', { className: 'se-sdk-card-header' },
+			h( 'div', null,
+				h( 'h2', null, __( 'Version history', 'storeengine-sdk' ) ),
+				h( 'p', { className: 'se-sdk-help se-sdk-card-subtitle' },
+					__( 'Install or roll back to any released version of this plugin.', 'storeengine-sdk' )
+				)
+			),
+			h( 'button', {
+				type: 'button',
+				className: 'button button-secondary se-sdk-refresh-btn',
+				onClick: onRefresh,
+				disabled: refreshing || loading,
+				title: __( 'Re-fetch the version list from the license server.', 'storeengine-sdk' ),
+			}, refreshing ? __( 'Refreshing…', 'storeengine-sdk' ) : __( 'Refresh', 'storeengine-sdk' ) )
+		);
 
 		if ( loading ) {
 			return h( 'div', { className: 'se-sdk-card' },
-				h( 'h2', null, __( 'Version history', 'storeengine-sdk' ) ),
+				header,
 				h( 'p', { className: 'se-sdk-help' }, __( 'Loading…', 'storeengine-sdk' ) )
 			);
 		}
 
 		if ( ! versions || versions.length === 0 ) {
+			// Distinguish between "server doesn't support listing" and
+			// "server supports it but has nothing released" so the vendor
+			// can act on the right thing.
+			if ( error && error.code === 'sdk-server-version-list-unsupported' ) {
+				return h( 'div', { className: 'se-sdk-card' },
+					header,
+					h( 'div', { className: 'se-sdk-empty-state se-sdk-empty-state-soft' },
+						h( 'p', null,
+							h( 'strong', null, __( 'The license server doesn\'t support version history yet.', 'storeengine-sdk' ) )
+						),
+						h( 'p', { className: 'se-sdk-help' }, error.message ),
+						h( 'p', { className: 'se-sdk-help' },
+							__( 'Status hero updates still work because they use the older /check-update endpoint. The Refresh button retries once the server is upgraded.', 'storeengine-sdk' )
+						)
+					)
+				);
+			}
+
+			if ( error ) {
+				return h( 'div', { className: 'se-sdk-card' },
+					header,
+					h( 'div', { className: 'se-sdk-empty-state se-sdk-empty-state-soft' },
+						h( 'p', null,
+							h( 'strong', null, __( 'Could not load version history.', 'storeengine-sdk' ) )
+						),
+						h( 'p', { className: 'se-sdk-help' }, error.message )
+					)
+				);
+			}
+
 			return h( 'div', { className: 'se-sdk-card' },
-				h( 'h2', null, __( 'Version history', 'storeengine-sdk' ) ),
-				h( 'p', { className: 'se-sdk-help' }, __( 'No previous versions available.', 'storeengine-sdk' ) )
+				header,
+				h( 'div', { className: 'se-sdk-empty-state' },
+					h( 'p', null,
+						h( 'strong', null, __( 'No versions are available to install or roll back to yet.', 'storeengine-sdk' ) )
+					),
+					h( 'p', { className: 'se-sdk-help' },
+						__( 'Once the vendor publishes additional released versions on the license server, they\'ll appear here with Install and Roll back buttons.', 'storeengine-sdk' )
+					)
+				)
 			);
 		}
 
+		const onlyCurrent = versions.length === 1 && versions[ 0 ].is_current;
+
 		return h( 'div', { className: 'se-sdk-card' },
-			h( 'h2', null, __( 'Version history', 'storeengine-sdk' ) ),
-			h( 'p', { className: 'se-sdk-help' },
-				__( 'Install any previous version. Rollback to a version with breaking changes will show a warning.', 'storeengine-sdk' )
+			header,
+			onlyCurrent && h( 'div', { className: 'se-sdk-empty-state se-sdk-empty-state-soft' },
+				h( 'p', { className: 'se-sdk-help' },
+					__( 'You\'re on the only released version. Roll back will become available once an earlier release is published.', 'storeengine-sdk' )
+				)
 			),
 			h( 'table', { className: 'wp-list-table widefat striped se-sdk-versions-table' },
 				h( 'thead', null,
@@ -406,13 +463,22 @@
 			return api( config, 'updates/status' ).then( setState );
 		}, [ config ] );
 
+		const [ versionsError, setVersionsError ] = useState( null );
+
 		const refreshVersions = useCallback( () => {
 			setVersionsLoading( true );
+			setVersionsError( null );
 			return api( config, 'updates/versions' )
 				.then( ( res ) => {
 					setVersions( res && res.versions ? res.versions : [] );
 				} )
-				.catch( () => setVersions( [] ) )
+				.catch( ( err ) => {
+					setVersions( [] );
+					setVersionsError( {
+						code: err.code,
+						message: err.message,
+					} );
+				} )
 				.finally( () => setVersionsLoading( false ) );
 		}, [ config ] );
 
@@ -550,6 +616,9 @@
 				installing,
 				onInstall: handleInstall,
 				current: state.current_version,
+				onRefresh: refreshVersions,
+				refreshing: versionsLoading,
+				error: versionsError,
 			} ),
 			h( SettingsCard, {
 				state,
