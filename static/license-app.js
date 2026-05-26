@@ -471,14 +471,12 @@
 
 	/* =========================================================
 	   Settings card
+	   Note: server endpoint /settings/auto-update-window + storage
+	   still exist for a future scheduled-update feature, but the
+	   UI is hidden until a window parser + cron are wired in.
 	   ========================================================= */
 	function SettingsCard( props ) {
-		const { state, onBeta, onWindow, savingBeta, savingWindow } = props;
-		const [ windowDraft, setWindowDraft ] = useState( state.auto_update_window || '' );
-
-		useEffect( () => {
-			setWindowDraft( state.auto_update_window || '' );
-		}, [ state.auto_update_window ] );
+		const { state, onBeta, savingBeta } = props;
 
 		return h( 'div', { className: 'se-sdk-card' },
 			h( 'div', { className: 'se-sdk-card-header' },
@@ -503,27 +501,6 @@
 					h( 'p', { className: 'se-sdk-setting-help' },
 						__( 'Includes pre-release versions tagged as beta on the license server.', 'storeengine-sdk' )
 					)
-				),
-				h( 'div', { className: 'se-sdk-setting-row' },
-					h( 'div', { className: 'se-sdk-setting-label' }, __( 'Auto-update window', 'storeengine-sdk' ) ),
-					h( 'div', { className: 'se-sdk-window-row' },
-						h( 'input', {
-							type: 'text',
-							placeholder: __( 'e.g. sun 03:00 — leave blank to disable', 'storeengine-sdk' ),
-							value: windowDraft,
-							onChange: ( e ) => setWindowDraft( e.target.value ),
-							disabled: savingWindow,
-						} ),
-						h( 'button', {
-							type: 'button',
-							className: 'se-sdk-btn se-sdk-btn-secondary',
-							onClick: () => onWindow( windowDraft.trim() || null ),
-							disabled: savingWindow || ( windowDraft.trim() || null ) === ( state.auto_update_window || null ),
-						}, savingWindow ? __( 'Saving…', 'storeengine-sdk' ) : __( 'Save', 'storeengine-sdk' ) )
-					),
-					h( 'p', { className: 'se-sdk-setting-help' },
-						__( 'Free-form schedule (e.g. "sun 03:00"). Stored on the server for client-side cron interpretation.', 'storeengine-sdk' )
-					)
 				)
 			)
 		);
@@ -544,7 +521,6 @@
 		const [ licenseBusy, setLicenseBusy ] = useState( false );
 		const [ licenseError, setLicenseError ] = useState( null );
 		const [ savingBeta, setSavingBeta ] = useState( false );
-		const [ savingWindow, setSavingWindow ] = useState( false );
 		const [ toast, setToast ] = useState( null );
 
 		const refreshStatus = useCallback( () => {
@@ -665,17 +641,6 @@
 				.finally( () => setSavingBeta( false ) );
 		}, [ config, refreshStatus, showToast ] );
 
-		const handleWindow = useCallback( ( windowStr ) => {
-			setSavingWindow( true );
-			api( config, 'settings/auto-update-window', { method: 'POST', body: { window: windowStr } } )
-				.then( ( res ) => {
-					setState( ( s ) => Object.assign( {}, s || {}, { auto_update_window: res.window } ) );
-					showToast( __( 'Schedule saved.', 'storeengine-sdk' ), 'success' );
-				} )
-				.catch( ( err ) => showToast( err.message, 'error' ) )
-				.finally( () => setSavingWindow( false ) );
-		}, [ config, showToast ] );
-
 		if ( ! state ) {
 			return h( 'div', { className: 'se-sdk-loading' }, __( 'Loading…', 'storeengine-sdk' ) );
 		}
@@ -713,9 +678,7 @@
 			h( SettingsCard, {
 				state,
 				onBeta: handleBeta,
-				onWindow: handleWindow,
 				savingBeta,
-				savingWindow,
 			} )
 		);
 	}
