@@ -25,11 +25,16 @@
 	color: inherit;
 }
 
-.se-sdk-app a {
+/* Generic link styles — but stay out of the way of links that are styled
+   as buttons (.se-sdk-btn / .se-sdk-btn-secondary), otherwise the link
+   colour overrides the button's white text and the label vanishes. */
+.se-sdk-app a:not(.se-sdk-btn):not(.se-sdk-btn-secondary):not(.se-sdk-btn-danger):not(.se-sdk-btn-ghost) {
 	color: var(--se-sdk-primary-color, #2271b1);
 	text-decoration: none;
 }
-.se-sdk-app a:hover { text-decoration: underline; }
+.se-sdk-app a:not(.se-sdk-btn):not(.se-sdk-btn-secondary):not(.se-sdk-btn-danger):not(.se-sdk-btn-ghost):hover {
+	text-decoration: underline;
+}
 
 .se-sdk-loading {
 	padding: 40px;
