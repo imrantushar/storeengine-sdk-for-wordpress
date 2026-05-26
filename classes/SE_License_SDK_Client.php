@@ -1110,8 +1110,14 @@ final class SE_License_SDK_Client {
 
 		$timeout  = $this->validate_timeout( $args );
 
-		// Body.
-		$body = array_merge( $args['body'], [
+		// Body. Caller-provided fields win over auto-added defaults — this
+		// matters for routes like /software/get-package where `version`
+		// means "which version's zip to fetch" rather than the SDK's
+		// default meaning of "currently installed plugin version". Before
+		// 1.5.2 the order was reversed and `version` was always clobbered
+		// by getProjectVersion(), so rollback always re-downloaded the
+		// currently-installed version's zip.
+		$body = array_merge( [
 			'is_free'     => $this->is_free,
 			'slug'        => $this->getSlug(),
 			'site_url'    => site_url(),
@@ -1120,7 +1126,7 @@ final class SE_License_SDK_Client {
 			'sdk_version' => $this->getVersion(),
 			'device_id'   => $this->get_device_id(),
 			'locale'      => get_locale(),
-		] );
+		], $args['body'] );
 
 		// Add license info for every request, if available.
 		if ( ! $this->is_free && $this->license() && $this->license()->get_key() && empty( $body['license'] ) ) {

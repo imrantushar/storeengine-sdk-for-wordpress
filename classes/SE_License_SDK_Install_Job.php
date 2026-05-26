@@ -208,8 +208,6 @@ final class SE_License_SDK_Install_Job {
 				);
 			}
 
-			// Surface the rename in the captured log so it's discoverable
-			// in the React panel's install-log drawer.
 			if ( method_exists( $skin, 'feedback' ) ) {
 				$skin->feedback( sprintf(
 					/* translators: 1: actual folder name in zip, 2: expected plugin slug */
