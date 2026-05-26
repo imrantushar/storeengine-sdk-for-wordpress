@@ -210,9 +210,8 @@
 		const [ keyDraft, setKeyDraft ] = useState( '' );
 
 		const active = license && license.status === 'active';
-		const maskedKey = license && license.license
-			? license.license.replace( /^(.{6}).*(.{4})$/, '$1' + '•'.repeat( 14 ) + '$2' )
-			: '';
+		// Server already masks via get_public_data() → mask_string(). Render as-is.
+		const maskedKey = license && license.license ? license.license : '';
 
 		const heroTitle = active
 			? sprintf( __( '%s is active on this site.', 'storeengine-sdk' ), config.packageName )
@@ -292,6 +291,14 @@
 			? __( 'Unlimited', 'storeengine-sdk' )
 			: sprintf( __( '%1$s of %2$s', 'storeengine-sdk' ), remaining, license.limit );
 
+		// License "updated_at" comes back as an ISO/MySQL string from
+		// get_public_data(); turn it into a unix timestamp for timeAgo().
+		const licenseCheckedUnix = license.updated_at
+			? Math.floor( Date.parse( license.updated_at.replace( ' ', 'T' ) + 'Z' ) / 1000 )
+			: null;
+
+		const autoUpdateOn = !! state.auto_update_enabled;
+
 		return h( 'div', { className: 'se-sdk-stats' },
 			h( 'div', { className: 'se-sdk-stat' },
 				h( 'span', { className: 'se-sdk-stat-label' }, __( 'Status', 'storeengine-sdk' ) ),
@@ -302,7 +309,7 @@
 			h( 'div', { className: 'se-sdk-stat' },
 				h( 'span', { className: 'se-sdk-stat-label' }, __( 'Last Checked', 'storeengine-sdk' ) ),
 				h( 'span', { className: 'se-sdk-stat-value' },
-					timeAgo( state.last_checked_at ),
+					timeAgo( licenseCheckedUnix ),
 					h( 'button', {
 						type: 'button',
 						className: 'se-sdk-refresh-link',
@@ -322,9 +329,14 @@
 				h( 'span', { className: 'se-sdk-stat-value' }, usage )
 			),
 			h( 'div', { className: 'se-sdk-stat' },
-				h( 'span', { className: 'se-sdk-stat-label' }, __( 'Automatic Update', 'storeengine-sdk' ) ),
+				h( 'span', { className: 'se-sdk-stat-label' }, __( 'WP Auto-update', 'storeengine-sdk' ) ),
 				h( 'span', { className: 'se-sdk-stat-value' },
-					h( 'span', { className: 'se-sdk-pill se-sdk-pill-ok' }, __( 'Enabled', 'storeengine-sdk' ) )
+					h( 'span', {
+						className: 'se-sdk-pill ' + ( autoUpdateOn ? 'se-sdk-pill-ok' : 'se-sdk-pill' ),
+						title: autoUpdateOn
+							? __( "WordPress will auto-install updates for this plugin (toggled on the Plugins screen).", 'storeengine-sdk' )
+							: __( 'Toggle auto-update from WordPress→Plugins.', 'storeengine-sdk' ),
+					}, autoUpdateOn ? __( 'Enabled', 'storeengine-sdk' ) : __( 'Disabled', 'storeengine-sdk' ) )
 				)
 			)
 		);

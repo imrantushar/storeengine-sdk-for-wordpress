@@ -274,23 +274,39 @@ final class SE_License_SDK_Rest_API {
 		$available = $latest && version_compare( $current, $latest, '<' );
 
 		return rest_ensure_response( [
-			'current_version'    => $current,
-			'latest_version'     => $latest,
-			'update_available'   => $available,
-			'last_checked_at'    => $state['last_checked_at'],
-			'previous_version'   => $state['previous_version'],
-			'last_install'       => [
+			'current_version'      => $current,
+			'latest_version'       => $latest,
+			'update_available'     => $available,
+			'last_checked_at'      => $state['last_checked_at'],
+			'previous_version'     => $state['previous_version'],
+			'last_install'         => [
 				'at'          => $state['last_install_at'],
 				'status'      => $state['last_install_status'],
 				'target'      => $state['last_install_target'],
 				'is_rollback' => $state['last_install_is_rollback'],
 			],
-			'last_install_log'   => $this->client->new_install_job()->get_last_log(),
-			'beta_enabled'       => (bool) $state['beta_enabled'],
-			'auto_update_window' => $state['auto_update_window'],
-			'changelog'          => $update && ! empty( $update->upgrade_notice ) ? $update->upgrade_notice : null,
-			'package_url'        => $update && ! empty( $update->package ) ? $update->package : null,
+			'last_install_log'     => $this->client->new_install_job()->get_last_log(),
+			'beta_enabled'         => (bool) $state['beta_enabled'],
+			'auto_update_enabled'  => $this->is_auto_update_enabled(),
+			'changelog'            => $update && ! empty( $update->upgrade_notice ) ? $update->upgrade_notice : null,
+			'package_url'          => $update && ! empty( $update->package ) ? $update->package : null,
 		] );
+	}
+
+	/**
+	 * Whether WordPress will auto-update this plugin/theme. Reads the
+	 * real `auto_update_plugins` / `auto_update_themes` site option that
+	 * WP-core writes to when the user toggles auto-update from the
+	 * Plugins / Themes screen.
+	 */
+	private function is_auto_update_enabled(): bool {
+		if ( $this->client->isPlugin() ) {
+			$auto = (array) get_site_option( 'auto_update_plugins', [] );
+			return in_array( $this->client->getBasename(), $auto, true );
+		}
+
+		$auto = (array) get_site_option( 'auto_update_themes', [] );
+		return in_array( $this->client->getSlug(), $auto, true );
 	}
 
 	/**

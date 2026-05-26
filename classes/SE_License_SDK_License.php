@@ -633,7 +633,6 @@ final class SE_License_SDK_License {
 			'mountId'           => $mount_id,
 			'slug'              => $this->client->getSlug(),
 			'packageName'       => $this->client->getPackageName(),
-			'currentVersion'    => $this->client->getProjectVersion(),
 			'isFree'            => $is_free,
 			'restUrl'           => trailingslashit( rest_url( 'storeengine-sdk/v1/' . $this->client->getSlug() ) ),
 			'nonce'             => wp_create_nonce( 'wp_rest' ),
