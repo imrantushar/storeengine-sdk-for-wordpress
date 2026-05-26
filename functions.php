@@ -3,6 +3,38 @@
  * Helper Functions.
  */
 
+// ---------------------------------------------------------------------------
+// PHP 7.4 polyfills.
+//
+// WordPress ships these in wp-includes/compat.php from WP 5.9+, but the SDK
+// is loaded on `plugins_loaded` priority 1 — which on some boot paths runs
+// before WP's compat.php is guaranteed to have been included. Defining safely
+// guarded copies here means the SDK never references missing functions when
+// running on PHP 7.4 with an older WordPress.
+// ---------------------------------------------------------------------------
+
+if ( ! function_exists( 'str_starts_with' ) ) {
+	function str_starts_with( string $haystack, string $needle ): bool {
+		return 0 === strncmp( $haystack, $needle, strlen( $needle ) );
+	}
+}
+
+if ( ! function_exists( 'str_ends_with' ) ) {
+	function str_ends_with( string $haystack, string $needle ): bool {
+		if ( '' === $needle ) {
+			return true;
+		}
+		$len = strlen( $needle );
+		return $len <= strlen( $haystack ) && 0 === substr_compare( $haystack, $needle, -$len );
+	}
+}
+
+if ( ! function_exists( 'str_contains' ) ) {
+	function str_contains( string $haystack, string $needle ): bool {
+		return '' === $needle || false !== strpos( $haystack, $needle );
+	}
+}
+
 if ( ! function_exists( 'se_license_init' ) ) {
 	/**
 	 * Initialize the SDK.

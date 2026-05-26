@@ -1,5 +1,31 @@
 *** Changelog ***
 
+= 1.5.0 - 26-05-2026 =
+* Added `str_starts_with`, `str_ends_with`, `str_contains` polyfills so the SDK runs correctly on PHP 7.4 (matches the declared `php: >=7.1` composer constraint).
+* Added React-based License & Updates panel (`static/license-app.js` + `static/license-app.css`) that replaces the legacy PHP license form on the SDK's built-in admin page. Mounts via `wp.element` — no build step required.
+* Added Status Hero card with installed → latest version, last-checked timestamp, and a "Check for updates" button.
+* Added Update Available banner with one-click "Update to vX.Y.Z" backed by `Plugin_Upgrader`. Synchronous install with captured log streamed to a collapsible drawer.
+* Added Rollback Banner: one-click revert to the previously installed version (recorded automatically via the `upgrader_process_complete` hook).
+* Added Version History card with per-row Install / Roll back / Rollback-blocked actions. Honours per-version `allow_rollback` + `breaking_changes` flags set by the vendor.
+* Added breaking-changes confirm modal inline in the version table.
+* Added "Receive beta updates" toggle backed by the new `/settings/beta-channel` endpoint.
+* Added new REST routes under `storeengine-sdk/v1/{slug}/`: `GET updates/status`, `POST updates/check-now`, `GET updates/versions`, `POST updates/install`, `POST updates/rollback`, `GET/POST settings/beta-channel`.
+* Added `SE_License_SDK_Install_Job` that wraps `Plugin_Upgrader::run()` with a non-interactive skin, captures progress, persists the log to a 1h transient for post-mortem.
+* Added `SE_License_SDK_Upgrader_Skin` — non-interactive skin that suppresses HTML output, captures feedback/errors as JSON, forces direct filesystem (no FTP prompt).
+* Added `SE_License_SDK_Update_State` — single wp_option store for `previous_version`, `last_install_*`, `last_checked_at`, `beta_enabled` mirror.
+* Added `SE_License_SDK_Updater::force_check()` — clears the transient and re-queries the server with `force=true`.
+* Added `upgrader_process_complete` hook to record `previous_version` whenever WP (cron or otherwise) successfully updates the host plugin, enabling the one-click rollback shortcut.
+* Stamps `last_checked_at` on every successful `/check-update` response so the UI can render "Checked 5 min ago" without a network round-trip.
+* Reworked deactivation feedback modal: reduced to 5 reasons (no longer needed / found better / couldn't work / temporary / other), removed the required-selection gating, exposed an in-button spinner that preserves the primary brand colour while submitting.
+* Switched deactivation feedback delivery to `navigator.sendBeacon` so the user is never blocked waiting for an AJAX round-trip before the plugin deactivates. Old AJAX path retained as fallback for browsers without sendBeacon.
+* Submit & Deactivate with no reason now still fires telemetry (server enriches with admin name/email/site URL/usage_log) but never blocks deactivation; Skip & Deactivate skips telemetry entirely.
+* Scoped 5 unscoped CSS selectors in `static/deactivation-modal.css` (`.feedback-message`, `.reasons`, `li`, `.mui`, `.mui-error`) to prevent style leakage onto unrelated WP admin pages.
+* Removed the deactivate-on-WP-plugin-deactivate behaviour in `project_deactivation()`. The license stays active across WP plugin deactivate/reactivate cycles (matches ACF Pro / Yoast Premium / EDD behaviour). Seat is freed only when the user explicitly clicks Deactivate License in the SDK panel or truly uninstalls the plugin.
+* Surfaced real WordPress auto-update state for the host plugin in the UI's "WP Auto-update" pill (was previously hardcoded to "Enabled").
+* Surfaced license `updated_at` as the source for "Last Checked" instead of mistakenly using the update-check timestamp.
+* Dropped JS double-masking of the license key (server already masks via `get_public_data()`).
+* Removed the unused `currentVersion` field from the localized config payload; removed `auto_update_window` from the `/updates/status` response (server endpoint + storage retained for future scheduled-update feature).
+
 = 1.4.0 - 20-04-2026 =
 * Fixed normalize sdk assets path for windows compatibility.
 * Improved purchase URL handling on the client with UTM parameters.
