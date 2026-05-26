@@ -786,6 +786,14 @@ final class SE_License_SDK_Client {
 			return $this->update_state;
 		}
 
+		// Defensive load — see require_sibling() in Updater.php for why.
+		if ( ! class_exists( 'SE_License_SDK_Update_State', false ) ) {
+			$path = __DIR__ . DIRECTORY_SEPARATOR . 'SE_License_SDK_Update_State.php';
+			if ( is_readable( $path ) ) {
+				require_once $path;
+			}
+		}
+
 		$this->update_state = new SE_License_SDK_Update_State( $this );
 
 		return $this->update_state;
@@ -796,6 +804,14 @@ final class SE_License_SDK_Client {
 	 * each REST call gets its own job_id + log slot.
 	 */
 	public function new_install_job(): SE_License_SDK_Install_Job {
+		// Defensive load.
+		if ( ! class_exists( 'SE_License_SDK_Install_Job', false ) ) {
+			$path = __DIR__ . DIRECTORY_SEPARATOR . 'SE_License_SDK_Install_Job.php';
+			if ( is_readable( $path ) ) {
+				require_once $path;
+			}
+		}
+
 		return new SE_License_SDK_Install_Job( $this );
 	}
 

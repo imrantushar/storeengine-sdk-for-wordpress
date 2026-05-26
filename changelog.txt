@@ -1,5 +1,11 @@
 *** Changelog ***
 
+= 1.5.1 - 26-05-2026 =
+* Fixed `Fatal error: Class "SE_License_SDK_Update_State" not found` that could occur on hosts where multiple SDK copies coexist (Strauss-prefixed vendor folders, classmap-authoritative composer dumps, custom autoloaders). The SDK's own `spl_autoload_register` resolves classes relative to whichever plugin's `init.php` registered the version first — which is not always the plugin that loaded `SE_License_SDK_Updater.php`. The 1.5.0 release added three new classes (`Update_State`, `Install_Job`, `Upgrader_Skin`) and the autoload mismatch could lookup them in the wrong vendor folder.
+* Added a defensive `require_once` for `SE_License_SDK_Update_State` before its two callsites in `SE_License_SDK_Updater::get_updates()` and `::record_previous_version()`. Loads the sibling file by `__DIR__` so it always matches the Updater that's running.
+* Added the same defensive load in `SE_License_SDK_Client::update_state()` and `::new_install_job()` for the React panel REST handlers.
+* Added the same defensive load in `SE_License_SDK_Install_Job::install_from_url()` for `SE_License_SDK_Upgrader_Skin`.
+
 = 1.5.0 - 26-05-2026 =
 * Added `str_starts_with`, `str_ends_with`, `str_contains` polyfills so the SDK runs correctly on PHP 7.4 (matches the declared `php: >=7.1` composer constraint).
 * Added React-based License & Updates panel (`static/license-app.js` + `static/license-app.css`) that replaces the legacy PHP license form on the SDK's built-in admin page. Mounts via `wp.element` — no build step required.

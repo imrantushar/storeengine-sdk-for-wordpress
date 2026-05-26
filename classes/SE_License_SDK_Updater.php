@@ -78,6 +78,25 @@ final class SE_License_SDK_Updater {
 	}
 
 	/**
+	 * Load a sibling SDK class file. The SDK ships its own spl_autoload
+	 * but in setups where multiple SDK copies coexist (Strauss-prefixed
+	 * vendor folders, classmap-authoritative composer dumps, etc.) the
+	 * autoloader's `$sdk_init_file` can end up pointing at a different
+	 * vendor folder than the one this Updater was loaded from. Falling
+	 * back to a relative require_once guarantees the new 1.5.0 classes
+	 * load from the same wordpress-sdk/ that contains this Updater.
+	 */
+	private static function require_sibling( string $class ): void {
+		if ( class_exists( $class, false ) ) {
+			return;
+		}
+		$path = __DIR__ . DIRECTORY_SEPARATOR . $class . '.php';
+		if ( is_readable( $path ) ) {
+			require_once $path;
+		}
+	}
+
+	/**
 	 * Set up WordPress filter hooks to get plugin update.
 	 *
 	 * @return void
@@ -270,6 +289,7 @@ final class SE_License_SDK_Updater {
 		if ( isset( $response['success'] ) && $response['success'] ) {
 			// Stamp the local "last checked" timestamp so the UI can render
 			// "checked 2 minutes ago" without polling the server.
+			self::require_sibling( 'SE_License_SDK_Update_State' );
 			( new SE_License_SDK_Update_State( $this->client ) )->record_check();
 
 			$data = $response['data'];
@@ -422,6 +442,7 @@ final class SE_License_SDK_Updater {
 		// version is whatever the SDK booted with on this request.
 		$previous = $this->client->getProjectVersion();
 
+		self::require_sibling( 'SE_License_SDK_Update_State' );
 		( new SE_License_SDK_Update_State( $this->client ) )->set( [
 			'previous_version' => $previous,
 			'last_install_at'  => time(),

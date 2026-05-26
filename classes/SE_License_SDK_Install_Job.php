@@ -90,6 +90,14 @@ final class SE_License_SDK_Install_Job {
 			@set_time_limit( 300 ); // phpcs:ignore
 		}
 
+		// Defensive load — see Updater.php::require_sibling() for context.
+		if ( ! class_exists( 'SE_License_SDK_Upgrader_Skin', false ) ) {
+			$skin_path = __DIR__ . DIRECTORY_SEPARATOR . 'SE_License_SDK_Upgrader_Skin.php';
+			if ( is_readable( $skin_path ) ) {
+				require_once $skin_path;
+			}
+		}
+
 		$skin     = new SE_License_SDK_Upgrader_Skin();
 		$upgrader = new Plugin_Upgrader( $skin );
 
