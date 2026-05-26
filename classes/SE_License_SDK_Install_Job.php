@@ -148,7 +148,87 @@ final class SE_License_SDK_Install_Job {
 			'hook_extra'                  => $hook_extra,
 		];
 
-		$result = $upgrader->run( $run_args );
+		// Mirror `Plugin_Upgrader::deactivate_plugin_before_upgrade()` — but
+		// only when we already know the plugin is active. Touching an
+		// actively-loaded plugin file on Windows fails silently (the file is
+		// open and cannot be replaced), which leaks as "install reported
+		// success but nothing actually changed". The post-install
+		// reactivation step below restores it.
+		if ( $was_active && ! is_plugin_inactive( $basename ) ) {
+			deactivate_plugins( [ $basename ], true );
+		}
+
+		// Pin the install destination to this plugin's slug regardless of
+		// what the zip's top folder is named. Older deployment uploads
+		// (predating the upload-time normalization in license-management's
+		// versions-controller.php) can contain a top folder like
+		// "{slug}-{version}/" instead of "{slug}/". WP_Upgrader builds the
+		// destination from that top-folder basename, so without this fix a
+		// rollback to one of those older zips installs into a NEW sibling
+		// folder (e.g. wp-content/plugins/{slug}-1.0/) and leaves the
+		// currently-installed plugin folder untouched — install reports
+		// success but the user sees no change on disk.
+		//
+		// The filter is scoped via $hook_extra['storeengine_sdk']['slug']
+		// so concurrent SDK consumers don't normalize each other's installs.
+		$expected_slug    = $slug;
+		$normalize_filter = static function ( $source, $remote_source, $upgrader_inst, $hook_extra_passed ) use ( $expected_slug, $skin ) {
+			global $wp_filesystem;
+
+			if ( empty( $hook_extra_passed['storeengine_sdk']['slug'] ) ) {
+				return $source;
+			}
+			if ( $hook_extra_passed['storeengine_sdk']['slug'] !== $expected_slug ) {
+				return $source;
+			}
+
+			$source        = trailingslashit( $source );
+			$actual        = trim( basename( untrailingslashit( $source ) ), '/' );
+			$expected_path = trailingslashit( $remote_source ) . $expected_slug;
+
+			if ( $actual === $expected_slug ) {
+				return $source;
+			}
+
+			// Old leftovers from a previous failed install could exist at
+			// the target path inside the working dir; clear before move.
+			if ( $wp_filesystem->exists( $expected_path ) ) {
+				$wp_filesystem->delete( $expected_path, true );
+			}
+
+			if ( ! $wp_filesystem->move( untrailingslashit( $source ), $expected_path ) ) {
+				return new WP_Error(
+					'sdk-rename-source-failed',
+					sprintf(
+						/* translators: 1: actual folder name in zip, 2: expected plugin slug */
+						__( 'Could not normalize package folder from "%1$s" to "%2$s".', 'storeengine-sdk' ),
+						$actual,
+						$expected_slug
+					)
+				);
+			}
+
+			// Surface the rename in the captured log so it's discoverable
+			// in the React panel's install-log drawer.
+			if ( method_exists( $skin, 'feedback' ) ) {
+				$skin->feedback( sprintf(
+					/* translators: 1: actual folder name in zip, 2: expected plugin slug */
+					__( 'Renamed package folder "%1$s" → "%2$s" to match installed plugin.', 'storeengine-sdk' ),
+					$actual,
+					$expected_slug
+				) );
+			}
+
+			return trailingslashit( $expected_path );
+		};
+
+		add_filter( 'upgrader_source_selection', $normalize_filter, 10, 4 );
+
+		try {
+			$result = $upgrader->run( $run_args );
+		} finally {
+			remove_filter( 'upgrader_source_selection', $normalize_filter, 10 );
+		}
 
 		// Restore caching.
 		wp_suspend_cache_addition( false );
