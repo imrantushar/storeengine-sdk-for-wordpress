@@ -12,12 +12,36 @@
 		}
 	}
 
+	/**
+	 * Put a button into a disabled+spinner state. Returns the original
+	 * label so the caller can restore it if the action is reversible.
+	 */
+	function setButtonLoading(buttonElem, config) {
+		if (buttonElem.data('se-sdk-original-label') == null) {
+			buttonElem.data('se-sdk-original-label', buttonElem.text());
+		}
+		var label = config.processingLabel || 'Processing...';
+		// `loading` keeps the button's primary colour; `disabled` blocks
+		// further clicks. The CSS targets the combination so the spinner
+		// stays visible against the original background rather than
+		// dropping to the muted disabled style.
+		buttonElem.addClass('disabled loading').prop('disabled', true).html(
+			'<span class="se-sdk-spinner" aria-hidden="true"></span>' +
+			'<span class="se-sdk-spinner-label">' + label + '</span>'
+		);
+	}
+
+	function restoreButton(buttonElem) {
+		var label = buttonElem.data('se-sdk-original-label');
+		if (label != null) {
+			buttonElem.removeClass('disabled loading').prop('disabled', false).text(label);
+		}
+	}
+
 	function ajaxSubmit(data, buttonElem, callback, config) {
 		if (buttonElem.hasClass('disabled') || buttonElem.is(':disabled')) {
 			return;
 		}
-
-		buttonElem.data('label', buttonElem.text());
 
 		return $.ajax({
 			url: window.ajaxurl,
@@ -27,10 +51,10 @@
 				_wpnonce: config.nonce
 			}, data),
 			beforeSend: function() {
-				buttonElem.addClass('disabled').prop('disabled', true).text(config.processingLabel);
+				setButtonLoading(buttonElem, config);
 			},
 			complete: function(event, xhr, options) {
-				buttonElem.removeClass('disabled').prop('disabled', false).text(buttonElem.data('label'));
+				restoreButton(buttonElem);
 				if (typeof callback === 'string') {
 					window.location.href = callback;
 				} else if (typeof callback === 'function') {
@@ -38,6 +62,42 @@
 				}
 			}
 		});
+	}
+
+	/**
+	 * Fire-and-forget feedback delivery via sendBeacon. Used when the user
+	 * provides a real reason — we don't need to wait for the server's
+	 * acknowledgement before navigating to the WP deactivate URL, because
+	 * the browser delivers beacon payloads even after page unload.
+	 *
+	 * Returns true if the beacon was queued; false if not supported (caller
+	 * should fall back to ajaxSubmit).
+	 */
+	function sendFeedbackBeacon(data, config) {
+		if (!window.navigator || typeof window.navigator.sendBeacon !== 'function') {
+			return false;
+		}
+
+		var payload = $.extend({}, {
+			action: config.uninstallAction,
+			_wpnonce: config.nonce
+		}, data);
+
+		try {
+			var body = new URLSearchParams();
+			Object.keys(payload).forEach(function (key) {
+				body.append(key, payload[key] == null ? '' : payload[key]);
+			});
+			// admin-ajax expects application/x-www-form-urlencoded; Blob lets
+			// us set the MIME type explicitly because sendBeacon defaults to
+			// text/plain for raw strings, which WP rejects.
+			return window.navigator.sendBeacon(
+				window.ajaxurl,
+				new Blob([body.toString()], { type: 'application/x-www-form-urlencoded' })
+			);
+		} catch (err) {
+			return false;
+		}
 	}
 
 	function initModal(modal) {
@@ -93,7 +153,6 @@
 			});
 			modal.find('input[type="radio"]').prop('checked', false).removeClass('selected-reason');
 			modal.find('.reason-input').remove();
-			responseButtons.addClass('disabled').prop('disabled', true);
 		}
 
 		function checkMessageValidity(event) {
@@ -175,6 +234,9 @@
 			self.closest('.reasons').find('.selected-reason').removeClass('selected-reason');
 			self.addClass('selected-reason');
 
+			// For "found-better" / "other" expose an optional follow-up
+			// input. It's not required — Submit & Deactivate stays enabled
+			// whether or not the user fills it in.
 			if (inputType !== '') {
 				var reasonMessage = $(inputType === 'text' ? '<input type="text" size="40" />' : '<textarea rows="5" cols="45"></textarea>');
 				reasonMessage.attr('placeholder', parent.data('placeholder'));
@@ -182,25 +244,46 @@
 				$('<div class="reason-input"></div>').append(reasonMessage).appendTo(parent);
 				reasonMessage.slideDown('fast').focus();
 			}
-
-			responseButtons.removeClass('disabled').prop('disabled', false);
 		}).on('click', '.dont-bother-me', function(event) {
 			preventDefault(event);
-			ajaxSubmit({
-				reason_id: 'no-comment',
-				reason_info: "I rather wouldn't say."
-			}, $(this), deactivateLink, config);
+			// User explicitly chose not to share — nothing useful to record.
+			// Show a brief spinner so the click feels acknowledged, then
+			// deactivate immediately (no server round-trip).
+			setButtonLoading($(this), config);
+			window.location.href = deactivateLink;
 		}).on('click', '.send-reason', function(event) {
 			preventDefault(event);
 			if ($(this).hasClass('disabled') || $(this).is(':disabled')) {
 				return;
 			}
 			var radio = modal.find('input.reason-type:checked');
-			var input = radio.closest('.reason-item').find('textarea, input[type="text"]');
-			ajaxSubmit({
-				reason_id: radio.length ? radio.val() : 'none',
-				reason_info: input.length ? $.trim(input.val()) : 'none'
-			}, $(this), deactivateLink, config);
+			var input = radio.length
+				? radio.closest('.reason-item').find('textarea, input[type="text"]')
+				: $();
+
+			// Even when no reason is picked, fire the beacon — the server
+			// enriches the payload with admin_name, admin_email, site URL
+			// and usage_log, which are valuable as deactivation telemetry
+			// regardless of whether the user provided a textual reason.
+			var payload = {
+				reason_id: radio.length ? radio.val() : 'no-comment',
+				reason_info: input.length ? $.trim(input.val()) : ''
+			};
+
+			// Show spinner immediately so the click feels acknowledged,
+			// independent of whether we use beacon or fall back to AJAX.
+			setButtonLoading($(this), config);
+
+			// Try sendBeacon first — browser delivers it even after we
+			// navigate away, so the user doesn't wait for the server.
+			if (sendFeedbackBeacon(payload, config)) {
+				window.location.href = deactivateLink;
+				return;
+			}
+
+			// Fallback: old-school AJAX with loader. Only hit on browsers
+			// without sendBeacon support (≤ IE / very old Safari).
+			ajaxSubmit(payload, $(this), deactivateLink, config);
 		}).on('click', '.send-ticket', function(event) {
 			preventDefault(event);
 			validMessage = [];
@@ -250,8 +333,6 @@
 				}, 5000);
 			}, config);
 		});
-
-		responseButtons.addClass('disabled').prop('disabled', true);
 	}
 
 	function init() {

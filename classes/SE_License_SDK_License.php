@@ -1437,8 +1437,29 @@ final class SE_License_SDK_License {
 	 * @return void
 	 */
 	public function project_deactivation() {
-		$this->get_license();
-		$this->deactivate_client_license();
+		// Intentionally NOT calling deactivate_client_license() here.
+		//
+		// WordPress plugin deactivation is often temporary — a user
+		// disables a plugin to debug, swap themes, test a conflict, etc.
+		// Surrendering the license seat on every deactivation forces the
+		// user to re-paste their key on reactivation, which is bad UX and
+		// also creates spurious "deactivated → reactivated" noise in the
+		// vendor's activation audit log.
+		//
+		// We match the behaviour of ACF Pro / EDD / Yoast Premium: the
+		// license stays active across WP plugin deactivate/reactivate.
+		// The seat is only released when the user explicitly clicks
+		// "Deactivate License" in the SDK panel, or when they truly
+		// uninstall the plugin (via wp-admin Plugins → Delete, which
+		// runs the consumer's own uninstall.php — the SDK can't hook
+		// that path because it's bundled inside the host plugin).
+		$this->clear_license_check_schedule();
+
+		// Drop the cached update-info transient so a future reactivation
+		// starts with a fresh check.
+		if ( method_exists( $this->client, 'updater' ) ) {
+			$this->client->updater()->delete_cached_version_info();
+		}
 	}
 
 	/**

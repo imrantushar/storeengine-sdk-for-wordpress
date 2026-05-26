@@ -926,54 +926,40 @@ final class SE_License_SDK_Insights {
 	 * @return array
 	 */
 	private function __get_uninstall_reasons(): array {
+		// Five-option list — minimal cognitive load. Only "found-better"
+		// and "other" expose an optional text input to capture the
+		// follow-up detail that's useful as feedback. All other reasons
+		// stand on their own.
 		$reasons = [
 				[
-						'id'          => 'how-to-use',
-						'text'        => esc_html__( "I couldn't understand how to make it work.", 'storeengine-sdk' ),
-						'type'        => 'textarea',
-						'placeholder' => esc_html__( 'Would you like us to assist you?', 'storeengine-sdk' ),
+						'id'          => 'no-longer-needed',
+						'text'        => esc_html__( 'I no longer need the plugin', 'storeengine-sdk' ),
+						'type'        => '',
+						'placeholder' => '',
 				],
 				[
 						'id'          => 'found-better',
-						'text'        => esc_html__( 'I found a better product.', 'storeengine-sdk' ),
+						'text'        => esc_html__( 'I found a better plugin', 'storeengine-sdk' ),
 						'type'        => 'text',
-						'placeholder' => esc_html__( 'Which Plugin!?', 'storeengine-sdk' ),
+						'placeholder' => esc_html__( 'Which one?', 'storeengine-sdk' ),
 				],
 				[
-						'id'          => 'feature-needed',
-						'text'        => esc_html__( "The plugin is great, but I need specific feature that you don't support.", 'storeengine-sdk' ),
-						'type'        => 'textarea',
-						'placeholder' => esc_html__( 'Can you tell us more about feature that you need?', 'storeengine-sdk' ),
-				],
-				[
-						'id'          => 'not-working',
-						'text'        => esc_html__( 'The plugin is not working.', 'storeengine-sdk' ),
-						'type'        => 'textarea',
-						'placeholder' => esc_html__( 'Could you tell us a bit more whats not working?', 'storeengine-sdk' ),
-				],
-				[
-						'id'          => 'looking-for-other',
-						'text'        => esc_html__( "It's not what I was looking for.", 'storeengine-sdk' ),
-						'type'        => 'textarea',
-						'placeholder' => esc_html__( 'Could you please let us know more about the features you are looking for?', 'storeengine-sdk' ),
-				],
-				[
-						'id'          => 'not-working-as-expected',
-						'text'        => esc_html__( "The plugin didn't work as expected.", 'storeengine-sdk' ),
-						'type'        => 'textarea',
-						'placeholder' => esc_html__( 'Please let us know your needs.', 'storeengine-sdk' ),
+						'id'          => 'how-to-use',
+						'text'        => esc_html__( "I couldn't get the plugin to work", 'storeengine-sdk' ),
+						'type'        => '',
+						'placeholder' => '',
 				],
 				[
 						'id'          => 'debugging',
-						'text'        => esc_html__( 'Temporary deactivation for debugging.', 'storeengine-sdk' ),
+						'text'        => esc_html__( "It's a temporary deactivation", 'storeengine-sdk' ),
 						'type'        => '',
 						'placeholder' => '',
 				],
 				[
 						'id'          => 'other',
 						'text'        => esc_html__( 'Other', 'storeengine-sdk' ),
-						'type'        => 'textarea',
-						'placeholder' => esc_html__( 'Could you tell us a bit more?', 'storeengine-sdk' ),
+						'type'        => 'text',
+						'placeholder' => esc_html__( 'Please share the reason', 'storeengine-sdk' ),
 				],
 		];
 
