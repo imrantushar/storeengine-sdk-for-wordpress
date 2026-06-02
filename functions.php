@@ -50,6 +50,7 @@ if ( ! function_exists( 'se_license_init' ) ) {
 	 * slug: string, // Plugin slug (without main file)
 	 * package_version?: string, // Optional current package version. Auto-detected from plugin/theme metadata when omitted.
 	 * allow_local?: bool, // Should plugin dev allow license activation from local environment. Recommended.
+	 * critical_paths?: array, // Package-relative paths (e.g. ['vendor/autoload.php']) that must exist in an update package; if any is missing the update is aborted before the live folder is swapped. Defaults to ['vendor/autoload.php'].
 	 * license_server: string, // Store URL (api backend for SDK).
 	 * activation_prompt?: null|string, // Custom activation nag (admin-notice) message.
 	 * purchase_url?: string, // Plugin store product URL.
@@ -99,6 +100,7 @@ if ( ! function_exists( 'se_license_init' ) ) {
 			'package_type'                  => null,
 			'package_version'               => null,
 			'allow_local'                   => true,
+			'critical_paths'                => null, // Package-relative paths that must exist in an update package; missing ones abort the update before the live folder is swapped.
 			'license_server'                => null,
 			'activation_prompt'             => null,
 			'purchase_url'                  => null,

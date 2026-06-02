@@ -105,8 +105,153 @@ final class SE_License_SDK_Updater {
 		add_filter( 'pre_set_site_transient_update_plugins', [ $this, 'check_plugin_update' ], 1, 1 );
 		add_filter( 'plugins_api', [ $this, 'plugins_api_filter' ], 10, 3 );
 
+		// Abort an incomplete update BEFORE WP swaps the live plugin folder.
+		// Priority 20 so it runs AFTER the Install_Job folder-normalizer
+		// (priority 10) and therefore inspects the final source directory.
+		// Covers both the native "Update now" path and the SDK REST installer.
+		add_filter( 'upgrader_source_selection', [ $this, 'validate_package_source' ], 20, 4 );
+
 		register_activation_hook( $this->client->getPackageFile(), [ $this, 'delete_cached_version_info' ] );
 		register_deactivation_hook( $this->client->getPackageFile(), [ $this, 'delete_cached_version_info' ] );
+	}
+
+	/**
+	 * Validate the extracted update package before WordPress deletes/swaps the
+	 * live plugin folder. If the package is missing its main file or any
+	 * declared critical path, return a WP_Error to abort: WP keeps the old
+	 * folder (it never reaches `clear_destination`) and, on WP 6.3+, restores
+	 * the temp_backup. Net effect — a failed/incomplete update is dismissed and
+	 * the user keeps a working plugin instead of a fatal/white-screen.
+	 *
+	 * Hooked on the core `upgrader_source_selection` filter:
+	 *   ($source, $remote_source, $upgrader, $hook_extra)
+	 *
+	 * @param string|WP_Error $source        Extracted (possibly normalized) source dir.
+	 * @param string          $remote_source Working dir the package was unpacked into.
+	 * @param WP_Upgrader     $upgrader      The upgrader instance.
+	 * @param array           $hook_extra    Context (plugin basename / SDK slug).
+	 *
+	 * @return string|WP_Error $source unchanged, or WP_Error to abort the install.
+	 */
+	public function validate_package_source( $source, $remote_source, $upgrader, $hook_extra = [] ) {
+		// An upstream filter already errored (e.g. the normalizer) — pass through.
+		if ( is_wp_error( $source ) ) {
+			return $source;
+		}
+
+		// Only ever inspect packages we can prove belong to this plugin.
+		if ( ! $this->source_belongs_to_this_plugin( $hook_extra ) ) {
+			return $source;
+		}
+
+		global $wp_filesystem;
+
+		// Without a usable filesystem we can't validate; don't block the update.
+		if ( ! $wp_filesystem || ! is_string( $source ) ) {
+			return $source;
+		}
+
+		$dir  = trailingslashit( $source );
+		$slug = $this->client->getSlug();
+
+		// 1) Main plugin file must be present in the package root.
+		$main_file = basename( $this->client->getBasename() );
+		if ( $main_file && ! $wp_filesystem->exists( $dir . $main_file ) ) {
+			return new WP_Error(
+				'sdk-package-incomplete',
+				sprintf(
+				/* translators: 1: plugin slug, 2: missing main file name. */
+					__( 'Update aborted: the downloaded %1$s package is missing its main file (%2$s). Your current version was kept.', 'storeengine-sdk' ),
+					$slug,
+					$main_file
+				)
+			);
+		}
+
+		// 2) Every declared critical path must exist.
+		foreach ( $this->get_critical_paths() as $rel ) {
+			if ( ! is_string( $rel ) ) {
+				continue;
+			}
+			$rel = ltrim( $rel, '/' );
+			if ( '' === $rel ) {
+				continue;
+			}
+			if ( ! $wp_filesystem->exists( $dir . $rel ) ) {
+				return new WP_Error(
+					'sdk-package-incomplete',
+					sprintf(
+					/* translators: 1: plugin slug, 2: missing package-relative path. */
+						__( 'Update aborted: the downloaded %1$s package is incomplete (missing %2$s). Your current version was kept.', 'storeengine-sdk' ),
+						$slug,
+						$rel
+					)
+				);
+			}
+		}
+
+		return $source;
+	}
+
+	/**
+	 * Whether $hook_extra unambiguously identifies the package this Updater
+	 * instance manages. `upgrader_source_selection` is a global (non-prefixed)
+	 * core hook, so every SDK consumer's callback fires for every install — we
+	 * MUST self-scope here and default to false on any ambiguity so we never
+	 * validate (or block) a package that isn't provably ours.
+	 *
+	 * @param array $hook_extra
+	 *
+	 * @return bool
+	 */
+	private function source_belongs_to_this_plugin( $hook_extra ): bool {
+		if ( empty( $hook_extra ) || ! is_array( $hook_extra ) ) {
+			return false;
+		}
+
+		// SDK REST Install_Job path — explicit slug tag.
+		if ( ! empty( $hook_extra['storeengine_sdk']['slug'] ) ) {
+			return $hook_extra['storeengine_sdk']['slug'] === $this->client->getSlug();
+		}
+
+		// Native single update (plugins.php "Update now").
+		if ( ! empty( $hook_extra['plugin'] ) ) {
+			return $hook_extra['plugin'] === $this->client->getBasename();
+		}
+
+		// Native bulk update (update-core.php).
+		if ( ! empty( $hook_extra['plugins'] ) && is_array( $hook_extra['plugins'] ) ) {
+			return in_array( $this->client->getBasename(), $hook_extra['plugins'], true );
+		}
+
+		return false;
+	}
+
+	/**
+	 * Effective list of package-relative paths that must exist for an update to
+	 * be accepted. Uses the consumer's declared `critical_paths`, or a
+	 * conservative default. Filterable so a site can trim/extend without
+	 * re-vendoring the SDK.
+	 *
+	 * @return array
+	 */
+	private function get_critical_paths(): array {
+		$paths = $this->client->getCriticalPaths();
+
+		if ( null === $paths ) {
+			// Conservative default: the autoloader almost every consumer ships
+			// and hard-requires. Kept minimal to avoid false-positive blocks.
+			$paths = [ 'vendor/autoload.php' ];
+		}
+
+		/**
+		 * Filter the critical paths checked before an update is applied.
+		 *
+		 * @param array $paths Package-relative paths that must exist.
+		 */
+		$paths = apply_filters( $this->client->getHookName( 'critical_paths' ), $paths );
+
+		return is_array( $paths ) ? $paths : [];
 	}
 
 	/**
