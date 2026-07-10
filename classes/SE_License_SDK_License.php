@@ -47,6 +47,23 @@ final class SE_License_SDK_License {
 	protected $error;
 
 	/**
+	 * Machine-readable error code from the last request (e.g.
+	 * `license-activation-limit-reached`). Lets callers branch on the failure
+	 * kind — the REST layer uses it to turn the limit case into a 409 + picker.
+	 *
+	 * @var string
+	 */
+	protected $error_code = '';
+
+	/**
+	 * Structured error payload from the last request (e.g. the list of active
+	 * sites when the activation limit is reached).
+	 *
+	 * @var array
+	 */
+	protected $error_data = [];
+
+	/**
 	 * Success message on form submit.
 	 *
 	 * @var string
@@ -1236,6 +1253,14 @@ final class SE_License_SDK_License {
 		return $this->error;
 	}
 
+	public function get_error_code(): string {
+		return $this->error_code;
+	}
+
+	public function get_error_data(): array {
+		return $this->error_data;
+	}
+
 	public function get_success() {
 		return $this->success;
 	}
@@ -1250,6 +1275,10 @@ final class SE_License_SDK_License {
 	public function activate_client_license( array $postData ) {
 
 		$this->updating_license( true );
+
+		// Reset structured error state for this attempt.
+		$this->error_code = '';
+		$this->error_data = [];
 
 		if ( empty( $postData['license_key'] ) ) {
 			$this->error = __( 'The license key field is required.', 'storeengine-sdk' );
@@ -1281,6 +1310,13 @@ final class SE_License_SDK_License {
 		$license['license']   = $postData['license_key'];
 		$license['device_id'] = $this->client->get_device_id();
 
+		// Seats the user chose to release during a limit-reached takeover
+		// (Freemius-style). The server frees these before re-checking the
+		// activation limit so this site can take a seat.
+		if ( ! empty( $postData['deactivate_activations'] ) && is_array( $postData['deactivate_activations'] ) ) {
+			$license['deactivate_activations'] = array_values( array_filter( array_map( 'absint', $postData['deactivate_activations'] ) ) );
+		}
+
 		// Activate The License.
 		$response = $this->activate( $license );
 
@@ -1290,6 +1326,11 @@ final class SE_License_SDK_License {
 			} else {
 				$this->error = __( 'Unknown error occurred.', 'storeengine-sdk' );
 			}
+
+			// Capture the machine-readable code + payload (e.g. the active-site
+			// list when the activation limit is reached) for the REST layer.
+			$this->error_code = $response['code'] ?? '';
+			$this->error_data = ( isset( $response['data'] ) && is_array( $response['data'] ) ) ? $response['data'] : [];
 		} else {
 			if ( ! $updateKey ) {
 				$this->success = __( 'License activated successfully.', 'storeengine-sdk' );

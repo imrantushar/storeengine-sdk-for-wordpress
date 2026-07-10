@@ -519,6 +519,94 @@
 	}
 
 	/* =========================================================
+	   Activation-limit takeover modal (Freemius-style)
+	   Shown when the server returns 409 license-activation-limit-reached
+	   with the list of the user's active sites. The user picks which
+	   site(s) to deactivate to free a seat, then activates this one.
+	   ========================================================= */
+	function LimitReachedModal( props ) {
+		const { modal, busy, onCancel, onConfirm } = props;
+		const [ selected, setSelected ] = useState( [] );
+
+		const sites = modal.sites || [];
+
+		const toggle = ( id ) => setSelected( ( prev ) =>
+			prev.indexOf( id ) === -1 ? prev.concat( id ) : prev.filter( ( x ) => x !== id )
+		);
+
+		const lead = modal.limit
+			? sprintf(
+				/* translators: %s: activation limit */
+				__( 'This license is already active on its maximum of %s site(s). Choose the site(s) to deactivate so this site can take a seat.', 'storeengine-sdk' ),
+				modal.limit
+			)
+			: __( 'This license has reached its activation limit. Choose the site(s) to deactivate so this site can take a seat.', 'storeengine-sdk' );
+
+		return h( 'div', {
+			className: 'se-sdk-modal-overlay',
+			onClick: ( e ) => { if ( e.target === e.currentTarget && ! busy ) onCancel(); },
+		},
+			h( 'div', { className: 'se-sdk-modal', role: 'dialog', 'aria-modal': 'true' },
+				h( 'div', { className: 'se-sdk-modal-header' },
+					h( 'h2', null, __( 'Activation limit reached', 'storeengine-sdk' ) ),
+					h( 'button', {
+						type: 'button',
+						className: 'se-sdk-modal-close',
+						onClick: onCancel,
+						disabled: busy,
+						'aria-label': __( 'Close', 'storeengine-sdk' ),
+					}, '×' )
+				),
+				h( 'div', { className: 'se-sdk-modal-body' },
+					h( 'p', { className: 'se-sdk-modal-lead' }, lead ),
+					sites.length === 0
+						? h( 'p', { className: 'se-sdk-modal-empty' },
+							__( 'No other active sites were reported. Please deactivate a site from your account dashboard, then try again.', 'storeengine-sdk' ) )
+						: h( 'ul', { className: 'se-sdk-site-list' },
+							sites.map( ( s ) =>
+								h( 'li', {
+									key: s.id,
+									className: 'se-sdk-site-item' + ( selected.indexOf( s.id ) !== -1 ? ' is-selected' : '' ),
+								},
+									h( 'label', { className: 'se-sdk-site-label' },
+										h( 'input', {
+											type: 'checkbox',
+											checked: selected.indexOf( s.id ) !== -1,
+											onChange: () => toggle( s.id ),
+											disabled: busy,
+										} ),
+										h( 'span', { className: 'se-sdk-site-info' },
+											h( 'span', { className: 'se-sdk-site-url' }, s.site_url || __( '(unknown site)', 'storeengine-sdk' ) ),
+											s.activated_at && h( 'span', { className: 'se-sdk-site-date' },
+												sprintf( /* translators: %s: date */ __( 'Activated %s', 'storeengine-sdk' ), s.activated_at ) )
+										)
+									)
+								)
+							)
+						)
+				),
+				h( 'div', { className: 'se-sdk-modal-footer' },
+					h( 'button', {
+						type: 'button',
+						className: 'se-sdk-btn se-sdk-btn-secondary',
+						onClick: onCancel,
+						disabled: busy,
+					}, __( 'Cancel', 'storeengine-sdk' ) ),
+					h( 'button', {
+						type: 'button',
+						className: 'se-sdk-btn se-sdk-btn-danger',
+						onClick: () => onConfirm( selected ),
+						disabled: busy || selected.length < 1,
+					}, busy
+						? __( 'Working…', 'storeengine-sdk' )
+						: __( 'Deactivate selected & activate here', 'storeengine-sdk' )
+					)
+				)
+			)
+		);
+	}
+
+	/* =========================================================
 	   App root
 	   ========================================================= */
 	function App( props ) {
@@ -534,6 +622,7 @@
 		const [ licenseError, setLicenseError ] = useState( null );
 		const [ savingBeta, setSavingBeta ] = useState( false );
 		const [ toast, setToast ] = useState( null );
+		const [ limitModal, setLimitModal ] = useState( null );
 
 		const refreshStatus = useCallback( () => {
 			return api( config, 'updates/status' ).then( setState );
@@ -605,16 +694,40 @@
 				.finally( () => setInstalling( false ) );
 		}, [ config, showToast, refreshStatus ] );
 
-		const handleActivate = useCallback( ( licenseKey ) => {
+		const handleActivate = useCallback( ( licenseKey, deactivateActivations ) => {
 			setLicenseBusy( true );
 			setLicenseError( null );
-			api( config, 'license/activate', { method: 'POST', body: { license: licenseKey } } )
+
+			const body = { license: licenseKey };
+			if ( deactivateActivations && deactivateActivations.length ) {
+				body.deactivate_activations = deactivateActivations;
+			}
+
+			return api( config, 'license/activate', { method: 'POST', body } )
 				.then( ( res ) => {
 					setState( ( s ) => Object.assign( {}, s || {}, { license: res.license } ) );
 					showToast( res.message || __( 'License activated.', 'storeengine-sdk' ), 'success' );
+					setLimitModal( null );
 					refreshVersions();
 				} )
-				.catch( ( err ) => setLicenseError( err.message ) )
+				.catch( ( err ) => {
+					// Activation limit reached — open the "free a seat" picker
+					// with the list of the user's active sites the server sent,
+					// instead of showing a dead-end error.
+					if ( err.code === 'license-activation-limit-reached' && err.data && Array.isArray( err.data.sites ) ) {
+						setLimitModal( {
+							licenseKey,
+							sites: err.data.sites,
+							limit: err.data.limit,
+							activations: err.data.activations,
+							message: err.message,
+						} );
+						setLicenseError( null );
+					} else {
+						setLimitModal( null );
+						setLicenseError( err.message );
+					}
+				} )
 				.finally( () => setLicenseBusy( false ) );
 		}, [ config, showToast, refreshVersions ] );
 
@@ -691,6 +804,13 @@
 				state,
 				onBeta: handleBeta,
 				savingBeta,
+			} ),
+
+			limitModal && h( LimitReachedModal, {
+				modal: limitModal,
+				busy: licenseBusy,
+				onCancel: () => setLimitModal( null ),
+				onConfirm: ( ids ) => handleActivate( limitModal.licenseKey, ids ),
 			} )
 		);
 	}

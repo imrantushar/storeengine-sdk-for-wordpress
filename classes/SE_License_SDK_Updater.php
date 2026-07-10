@@ -113,6 +113,19 @@ final class SE_License_SDK_Updater {
 
 		register_activation_hook( $this->client->getPackageFile(), [ $this, 'delete_cached_version_info' ] );
 		register_deactivation_hook( $this->client->getPackageFile(), [ $this, 'delete_cached_version_info' ] );
+
+		// Core/free plugin dependency gate (Points 1+2): never let the pro
+		// update out-run the free plugin it depends on. No-op unless the
+		// consumer declared `requires_core`.
+		if ( $this->client->core_dependency()->is_configured() ) {
+			// Abort a native "Update now" / bulk / cron auto-update of the pro
+			// plugin while the core plugin is behind — priority 5 so it runs
+			// before the package-integrity check and short-circuits early.
+			// (The SDK's own installer attempts a core update first; this is
+			// the safety net for every other upgrade path.)
+			add_filter( 'upgrader_pre_install', [ $this, 'gate_core_dependency' ], 5, 2 );
+			add_action( 'admin_notices', [ $this, 'core_dependency_notice' ] );
+		}
 	}
 
 	/**
@@ -252,6 +265,79 @@ final class SE_License_SDK_Updater {
 		$paths = apply_filters( $this->client->getHookName( 'critical_paths' ), $paths );
 
 		return is_array( $paths ) ? $paths : [];
+	}
+
+	/**
+	 * Abort a pro update while the core/free plugin it depends on is behind.
+	 *
+	 * Hooked on core's `upgrader_pre_install` so it covers the native "Update
+	 * now" link, bulk updates on update-core.php, and unattended background
+	 * auto-updates alike. We only GATE here (never trigger a nested core
+	 * upgrade — a re-entrant WP_Upgrader run is unsafe); the SDK's own
+	 * installer does the auto-update-the-core-first attempt before it gets here.
+	 *
+	 * @param bool|WP_Error $response   Whether to proceed. WP_Error to abort.
+	 * @param array         $hook_extra Upgrade context.
+	 *
+	 * @return bool|WP_Error
+	 */
+	public function gate_core_dependency( $response, $hook_extra = [] ) {
+		// An upstream pre-install check already failed — pass it through.
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		// Only ever gate an upgrade we can prove is this pro plugin.
+		if ( ! $this->source_belongs_to_this_plugin( $hook_extra ) ) {
+			return $response;
+		}
+
+		// Never gate a rollback/downgrade — the latest release's core-version
+		// requirement doesn't apply to an older pro version.
+		if ( ! empty( $hook_extra['storeengine_sdk']['is_rollback'] ) ) {
+			return $response;
+		}
+
+		$result = $this->client->core_dependency()->ensure_satisfied_or_error( false );
+
+		return is_wp_error( $result ) ? $result : $response;
+	}
+
+	/**
+	 * Nag the admin to update the core/free plugin first when a pro update is
+	 * pending but the dependency isn't satisfied. Only shown while an update is
+	 * actually waiting, so a latent version gap that blocks nothing stays quiet.
+	 *
+	 * @return void
+	 */
+	public function core_dependency_notice() {
+		if ( ! current_user_can( 'update_plugins' ) ) {
+			return;
+		}
+
+		$dep = $this->client->core_dependency();
+
+		if ( ! $dep->is_configured() || $dep->is_satisfied() ) {
+			return;
+		}
+
+		// Only nag when a pro update is actually pending.
+		$which = $this->client->isPlugin() ? 'plugin_update' : 'theme_update';
+		$info  = get_transient( $this->cache_key . $which );
+
+		$update_pending = is_object( $info )
+			&& ! empty( $info->new_version )
+			&& version_compare( $this->client->getProjectVersion(), $info->new_version, '<' );
+
+		if ( ! $update_pending ) {
+			return;
+		}
+
+		printf(
+			'<div class="notice notice-warning"><p><strong>%1$s:</strong> %2$s</p></div>',
+			esc_html( $this->client->getPackageName() ),
+			esc_html( $dep->unmet_message() )
+		);
 	}
 
 	/**
@@ -438,6 +524,14 @@ final class SE_License_SDK_Updater {
 			( new SE_License_SDK_Update_State( $this->client ) )->record_check();
 
 			$data = $response['data'];
+
+			// Mirror the license server's per-release core-plugin requirement
+			// (if any) so the dependency gate can read it during a later install
+			// request. Stored even when empty so a dropped requirement clears.
+			$required_core = ( isset( $data['requires_core']['min_version'] ) && is_string( $data['requires_core']['min_version'] ) )
+				? $data['requires_core']['min_version']
+				: '';
+			( new SE_License_SDK_Update_State( $this->client ) )->set( [ 'required_core_version' => $required_core ] );
 
 			if ( 'plugin_update' !== $action ) {
 				// information -> package-info

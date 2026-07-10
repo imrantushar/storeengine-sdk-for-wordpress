@@ -125,6 +125,18 @@ final class SE_License_SDK_Client {
 	protected $critical_paths = null;
 
 	/**
+	 * Core / free plugin this (pro) product depends on. When set, the Updater
+	 * refuses to apply a pro update until the core plugin is present, active,
+	 * and at least the required version — so pro never out-runs its free plugin
+	 * (e.g. while the matching free release is held in wordpress.org's review
+	 * window). Shape: [ 'slug' => '', 'basename' => '', 'name' => '', 'min_version' => '' ].
+	 * Null means "no core dependency".
+	 *
+	 * @var ?array
+	 */
+	protected $requires_core = null;
+
+	/**
 	 * The project purchase/checkout URL.
 	 *
 	 * @var string|null
@@ -193,6 +205,13 @@ final class SE_License_SDK_Client {
 	 * @var ?SE_License_SDK_Update_State
 	 */
 	private $update_state;
+
+	/**
+	 * Per-client core/free plugin dependency gate.
+	 *
+	 * @var ?SE_License_SDK_Core_Dependency
+	 */
+	private $core_dependency;
 
 	private $js_param_name;
 
@@ -285,6 +304,7 @@ final class SE_License_SDK_Client {
 			'product_logo'    => null,
 			'primary_color'   => '#008DFF',
 			'critical_paths'  => null,
+			'requires_core'   => null,
 		] );
 
 		if ( ! $args['license_server'] ) {
@@ -309,6 +329,7 @@ final class SE_License_SDK_Client {
 		$this->type              = $args['package_type'];
 		$this->package_version   = $args['package_version'];
 		$this->critical_paths    = is_array( $args['critical_paths'] ) ? $args['critical_paths'] : null;
+		$this->requires_core     = $this->normalize_requires_core( $args['requires_core'] );
 
 		if ( ! $this->basename || ! $this->slug || ! $this->type || ! $this->package_version ) {
 			$this->set_basename_and_slug();
@@ -808,6 +829,27 @@ final class SE_License_SDK_Client {
 		$this->update_state = new SE_License_SDK_Update_State( $this );
 
 		return $this->update_state;
+	}
+
+	/**
+	 * Core / free plugin dependency gate for this client.
+	 */
+	public function core_dependency(): SE_License_SDK_Core_Dependency {
+		if ( ! is_null( $this->core_dependency ) ) {
+			return $this->core_dependency;
+		}
+
+		// Defensive load — see require_sibling() in Updater.php for why.
+		if ( ! class_exists( 'SE_License_SDK_Core_Dependency', false ) ) {
+			$path = __DIR__ . DIRECTORY_SEPARATOR . 'SE_License_SDK_Core_Dependency.php';
+			if ( is_readable( $path ) ) {
+				require_once $path;
+			}
+		}
+
+		$this->core_dependency = new SE_License_SDK_Core_Dependency( $this );
+
+		return $this->core_dependency;
 	}
 
 	/**
@@ -1403,6 +1445,59 @@ final class SE_License_SDK_Client {
 	 */
 	public function getCriticalPaths() {
 		return $this->critical_paths;
+	}
+
+	/**
+	 * Normalize the `requires_core` init arg into a predictable shape (or null).
+	 * A bare string is treated as the core plugin slug for convenience.
+	 *
+	 * @param mixed $value
+	 *
+	 * @return ?array{slug:string, basename:string, name:string, min_version:string}
+	 */
+	protected function normalize_requires_core( $value ): ?array {
+		if ( is_string( $value ) && '' !== $value ) {
+			$value = [ 'slug' => $value ];
+		}
+
+		if ( ! is_array( $value ) ) {
+			return null;
+		}
+
+		$core = wp_parse_args( $value, [
+			'slug'        => '',
+			'basename'    => '',
+			'name'        => '',
+			'min_version' => '',
+		] );
+
+		$core['slug']        = is_string( $core['slug'] ) ? sanitize_key( $core['slug'] ) : '';
+		$core['basename']    = is_string( $core['basename'] ) ? trim( $core['basename'] ) : '';
+		$core['name']        = is_string( $core['name'] ) ? trim( $core['name'] ) : '';
+		$core['min_version'] = is_string( $core['min_version'] ) ? trim( $core['min_version'] ) : '';
+
+		// Derive a basename from the slug when only the slug was given
+		// (matches the common "slug/slug.php" plugin layout).
+		if ( '' === $core['basename'] && '' !== $core['slug'] ) {
+			$core['basename'] = $core['slug'] . '/' . $core['slug'] . '.php';
+		}
+
+		// Nothing usable to identify the core plugin — treat as unconfigured.
+		if ( '' === $core['slug'] && '' === $core['basename'] ) {
+			return null;
+		}
+
+		return $core;
+	}
+
+	/**
+	 * The core / free plugin this product depends on, or null when none was
+	 * declared. Shape: [ slug, basename, name, min_version ].
+	 *
+	 * @return ?array
+	 */
+	public function getRequiresCore(): ?array {
+		return $this->requires_core;
 	}
 
 	/**
