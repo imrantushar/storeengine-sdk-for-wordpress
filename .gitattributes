@@ -9,6 +9,10 @@ gulpfile.js export-ignore
 composer.json !export-ignore
 composer.lock export-ignore
 /languages/*.po export-ignore
+# Keep translation templates + JS translation JSON in the distributed archive
+# (they'd otherwise be caught by the global *.json export-ignore above).
+/languages/*.pot !export-ignore
+/languages/*.json !export-ignore
 /assets/scss/ export-ignore
 *.css.map export-ignore
 phpcs.xml export-ignore
