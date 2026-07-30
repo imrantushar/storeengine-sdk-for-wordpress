@@ -177,6 +177,16 @@ final class SE_License_SDK_License {
 		return $this;
 	}
 
+	/**
+	 * The store/account dashboard URL where the customer manages/downloads their
+	 * product (set from the `store_dashboard_url` init arg), or null.
+	 *
+	 * @return ?string
+	 */
+	public function get_manage_license_url(): ?string {
+		return $this->manage_license_url ?: null;
+	}
+
 	public function use_custom_style(): SE_License_SDK_License {
 		$this->use_custom_style = true;
 

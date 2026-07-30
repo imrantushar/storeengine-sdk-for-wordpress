@@ -924,13 +924,25 @@ final class SE_License_SDK_Client {
 
 		if ( $this->isPro() ) {
 			$data['license'] = $this->license()->get_public_data();
+			// Whether the license is currently honoured under the offline grace
+			// period (server unreachable, last-known-good still active).
+			$data['license_in_grace'] = $this->license()->is_in_grace();
+			// Where the customer manages/downloads the product.
+			$data['store_dashboard_url'] = $this->license()->get_manage_license_url();
+			$data['purchase_url']        = $this->get_purchase_url() ?: null;
 		}
 
 		if ( $this->maybe_init_update() ) {
 			$data['package'] = [
+				'name'    => $this->getPackageName(),
 				'version' => $this->getProjectVersion(),
 				'type'    => $this->getType(),
 			];
+
+			// Manual-install fallback target shown when an automatic update fails.
+			$data['upload_url'] = $this->isPlugin()
+				? self_admin_url( 'plugin-install.php?tab=upload' )
+				: self_admin_url( 'theme-install.php?upload' );
 
 			if ( 'plugin' === $this->getType() ) {
 				$update = $this->updater()->plugins_api_filter( false, 'plugin_information', (object) [ 'slug' => $this->getSlug(), ] );
