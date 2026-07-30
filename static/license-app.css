@@ -822,3 +822,48 @@
 	.se-sdk-modal-footer { flex-direction: column-reverse; align-items: stretch; }
 	.se-sdk-modal-footer .se-sdk-btn { width: 100%; justify-content: center; }
 }
+
+/* ---------------------------------------------------------------------------
+   Manual-update fallback notice (shown when an automatic install fails).
+   --------------------------------------------------------------------------- */
+.se-sdk-manual-update {
+	margin: 16px 0;
+	padding: 20px 24px;
+	border: 1px solid #f0c36d;
+	border-left: 4px solid #dba617;
+	border-radius: 8px;
+	background: #fcf9e8;
+	color: #1d2327;
+}
+.se-sdk-manual-update-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	font-size: 15px;
+}
+.se-sdk-manual-dismiss {
+	border: 0;
+	background: transparent;
+	font-size: 22px;
+	line-height: 1;
+	cursor: pointer;
+	color: #646970;
+}
+.se-sdk-manual-dismiss:hover { color: #1d2327; }
+.se-sdk-manual-reason {
+	margin: 8px 0 4px;
+	font-style: italic;
+	color: #8a6d3b;
+}
+.se-sdk-manual-steps {
+	margin: 12px 0 16px 20px;
+	padding: 0;
+	line-height: 1.7;
+}
+.se-sdk-manual-steps li { margin-bottom: 4px; }
+.se-sdk-manual-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+}

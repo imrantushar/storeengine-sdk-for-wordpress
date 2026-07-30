@@ -137,6 +137,16 @@ final class SE_License_SDK_Client {
 	protected $requires_core = null;
 
 	/**
+	 * How long (seconds) a previously-valid license keeps working when the
+	 * license server can't be reached for its scheduled re-check. Prevents a
+	 * transient outage or blocked outbound request from deactivating a paying
+	 * customer's product. Null = use the default from getLicenseGracePeriod().
+	 *
+	 * @var ?int
+	 */
+	protected $license_grace_period = null;
+
+	/**
 	 * The project purchase/checkout URL.
 	 *
 	 * @var string|null
@@ -305,6 +315,7 @@ final class SE_License_SDK_Client {
 			'primary_color'   => '#008DFF',
 			'critical_paths'  => null,
 			'requires_core'   => null,
+			'license_grace_period' => null,
 		] );
 
 		if ( ! $args['license_server'] ) {
@@ -330,6 +341,7 @@ final class SE_License_SDK_Client {
 		$this->package_version   = $args['package_version'];
 		$this->critical_paths    = is_array( $args['critical_paths'] ) ? $args['critical_paths'] : null;
 		$this->requires_core     = $this->normalize_requires_core( $args['requires_core'] );
+		$this->license_grace_period = is_null( $args['license_grace_period'] ) ? null : absint( $args['license_grace_period'] );
 
 		if ( ! $this->basename || ! $this->slug || ! $this->type || ! $this->package_version ) {
 			$this->set_basename_and_slug();
@@ -478,11 +490,36 @@ final class SE_License_SDK_Client {
 		}
 	}
 
+	/**
+	 * Whether this product is network-activated on a multisite install. When it
+	 * is, the license + SDK state live at the network level (one license for the
+	 * whole network) and the license UI moves to the Network Admin.
+	 *
+	 * @return bool
+	 */
+	public function is_network_activated(): bool {
+		if ( ! is_multisite() || ! $this->isPlugin() ) {
+			return false;
+		}
+
+		if ( ! function_exists( 'is_plugin_active_for_network' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+
+		return is_plugin_active_for_network( $this->getBasename() );
+	}
+
 	protected function load_software_data() {
 		if ( null === $this->software_data ) {
-			// No hooks please...
-			remove_all_filters( "pre_option_$this->software_data_option" );
-			$this->software_data = get_option( $this->software_data_option );
+			if ( $this->is_network_activated() ) {
+				// No hooks please...
+				remove_all_filters( "pre_site_option_$this->software_data_option" );
+				$this->software_data = get_site_option( $this->software_data_option );
+			} else {
+				// No hooks please...
+				remove_all_filters( "pre_option_$this->software_data_option" );
+				$this->software_data = get_option( $this->software_data_option );
+			}
 
 			if ( ! $this->software_data || ! is_array( $this->software_data ) ) {
 				$this->software_data = [];
@@ -523,7 +560,11 @@ final class SE_License_SDK_Client {
 		// Force save.
 		$this->software_data['last-updated'] = current_time( 'mysql', 1 );
 
-		update_option( $this->software_data_option, $this->software_data );
+		if ( $this->is_network_activated() ) {
+			update_site_option( $this->software_data_option, $this->software_data );
+		} else {
+			update_option( $this->software_data_option, $this->software_data );
+		}
 	}
 
 	public function get_device_id(): string {
@@ -1235,11 +1276,16 @@ final class SE_License_SDK_Client {
 
 		if ( in_array( $args['route'], $routes, true ) ) {
 			if ( is_wp_error( $response ) ) {
+				// Transport-level failure (DNS, timeout, TLS, connection refused,
+				// blocked outbound request): the server never gave a verdict, so
+				// callers must NOT treat this as "license invalid". Flagged so the
+				// license check can hold the last-known-good state (grace period).
 				return [
-					'success' => false,
-					'error'   => $response->get_error_message(),
-					'code'    => $response->get_error_code(),
-					'data'    => $response->get_error_data( $response->get_error_code() ),
+					'success'         => false,
+					'error'           => $response->get_error_message(),
+					'code'            => $response->get_error_code(),
+					'data'            => $response->get_error_data( $response->get_error_code() ),
+					'transport_error' => true,
 				];
 			}
 
@@ -1256,11 +1302,18 @@ final class SE_License_SDK_Client {
 			}
 
 			if ( $code && $code >= 400 ) {
+				// 5xx / 408 / 429 (and a missing/empty status) mean the server or
+				// an edge in front of it is unhealthy — not a license rejection.
+				// Mark them transport-level too so the grace period applies. Only
+				// a genuine 4xx business error is treated as a definitive verdict.
+				$is_transport = ( $code >= 500 ) || in_array( (int) $code, [ 408, 429 ], true );
+
 				return [
-					'success' => false,
-					'error'   => $body['message'] ?? __( 'Unknown error.', 'storeengine-sdk' ),
-					'code'    => $body['code'] ?? 'UNKNOWN_ERROR',
-					'data'    => $body['data'] ?? [],
+					'success'         => false,
+					'error'           => $body['message'] ?? __( 'Unknown error.', 'storeengine-sdk' ),
+					'code'            => $body['code'] ?? 'UNKNOWN_ERROR',
+					'data'            => $body['data'] ?? [],
+					'transport_error' => $is_transport,
 				];
 			}
 
@@ -1498,6 +1551,20 @@ final class SE_License_SDK_Client {
 	 */
 	public function getRequiresCore(): ?array {
 		return $this->requires_core;
+	}
+
+	/**
+	 * How long a previously-valid license is honoured while the license server
+	 * is unreachable. Defaults to 14 days; overridable per-product via the
+	 * `license_grace_period` init arg or the `{hook}_license_grace_period`
+	 * filter. Returning 0 disables the grace period (fail closed immediately).
+	 *
+	 * @return int Seconds.
+	 */
+	public function getLicenseGracePeriod(): int {
+		$default = is_null( $this->license_grace_period ) ? 14 * DAY_IN_SECONDS : $this->license_grace_period;
+
+		return (int) max( 0, apply_filters( $this->getHookName( 'license_grace_period' ), $default ) );
 	}
 
 	/**

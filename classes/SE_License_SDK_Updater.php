@@ -237,6 +237,16 @@ final class SE_License_SDK_Updater {
 			return in_array( $this->client->getBasename(), $hook_extra['plugins'], true );
 		}
 
+		// Native single theme update (themes are keyed by stylesheet == slug).
+		if ( ! empty( $hook_extra['theme'] ) ) {
+			return $hook_extra['theme'] === $this->client->getSlug();
+		}
+
+		// Native bulk theme update.
+		if ( ! empty( $hook_extra['themes'] ) && is_array( $hook_extra['themes'] ) ) {
+			return in_array( $this->client->getSlug(), $hook_extra['themes'], true );
+		}
+
 		return false;
 	}
 
@@ -349,6 +359,16 @@ final class SE_License_SDK_Updater {
 		add_filter( 'pre_set_site_transient_update_themes', [ $this, 'check_theme_update' ] );
 		add_filter( 'themes_api', [ $this, 'themes_api_filter' ], 10, 3 );
 		add_action( 'switch_theme', [ $this, 'delete_cached_version_info' ] );
+
+		// Abort an incomplete theme update BEFORE WP swaps the live theme
+		// folder — parity with the plugin path.
+		add_filter( 'upgrader_source_selection', [ $this, 'validate_package_source' ], 20, 4 );
+
+		// Core/free plugin dependency gate — no-op unless `requires_core` is set.
+		if ( $this->client->core_dependency()->is_configured() ) {
+			add_filter( 'upgrader_pre_install', [ $this, 'gate_core_dependency' ], 5, 2 );
+			add_action( 'admin_notices', [ $this, 'core_dependency_notice' ] );
+		}
 	}
 
 	/**
@@ -361,7 +381,10 @@ final class SE_License_SDK_Updater {
 	public function check_plugin_update( $transient_data ) {
 		global $pagenow;
 
-		if ( 'plugins.php' === $pagenow && is_multisite() ) {
+		// On multisite, skip injection on the per-site plugins.php (a site admin
+		// can't update a network plugin anyway) — but DO inject in the Network
+		// Admin, where a super admin manages network-activated plugin updates.
+		if ( 'plugins.php' === $pagenow && is_multisite() && ! is_network_admin() ) {
 			return $transient_data;
 		}
 
@@ -657,22 +680,14 @@ final class SE_License_SDK_Updater {
 	 * @param array $hook_extra
 	 */
 	public function record_previous_version( $upgrader, $hook_extra ) {
-		if ( empty( $hook_extra['type'] ) || 'plugin' !== $hook_extra['type'] ) {
+		$type = $hook_extra['type'] ?? '';
+
+		// Only this product's own plugin/theme update.
+		if ( ! in_array( $type, [ 'plugin', 'theme' ], true ) ) {
 			return;
 		}
 
-		if ( empty( $hook_extra['plugins'] ) && empty( $hook_extra['plugin'] ) ) {
-			return;
-		}
-
-		$updated = [];
-		if ( ! empty( $hook_extra['plugins'] ) && is_array( $hook_extra['plugins'] ) ) {
-			$updated = $hook_extra['plugins'];
-		} elseif ( ! empty( $hook_extra['plugin'] ) ) {
-			$updated = [ $hook_extra['plugin'] ];
-		}
-
-		if ( ! in_array( $this->client->getBasename(), $updated, true ) ) {
+		if ( ! $this->source_belongs_to_this_plugin( $hook_extra ) ) {
 			return;
 		}
 
@@ -686,6 +701,16 @@ final class SE_License_SDK_Updater {
 			'previous_version' => $previous,
 			'last_install_at'  => time(),
 		] );
+
+		/**
+		 * Fires after this product's files have been updated in place (covers the
+		 * native "Update now"/bulk/auto-update paths and the SDK installer alike).
+		 * Hook name: "{product-hook-prefix}_update_installed".
+		 *
+		 * @param string                 $previous The version that was running before the swap.
+		 * @param SE_License_SDK_Updater $this     The updater instance.
+		 */
+		$this->client->do_action( 'update_installed', $previous, $this );
 	}
 
 	/**

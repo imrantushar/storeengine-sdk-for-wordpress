@@ -469,6 +469,16 @@ final class SE_License_SDK_Rest_API {
 		if ( is_wp_error( $result ) ) {
 			$this->client->update_state()->record_install( $target_version, $current, 'failed', false );
 
+			/**
+			 * Fires when an SDK-driven update install fails.
+			 * Hook name: "{product-hook-prefix}_update_failed".
+			 *
+			 * @param WP_Error $result         The failure.
+			 * @param string   $target_version The version that was being installed.
+			 * @param string   $current        The version still on disk.
+			 */
+			$this->client->do_action( 'update_failed', $result, $target_version, $current );
+
 			return $result;
 		}
 

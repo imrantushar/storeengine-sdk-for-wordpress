@@ -176,6 +176,62 @@
 	}
 
 	/* =========================================================
+	   Manual-update fallback — shown when an automatic install fails.
+	   Instructions only (no direct download link): the user downloads
+	   the package from their store account and uploads it by hand.
+	   ========================================================= */
+	function ManualUpdateNotice( props ) {
+		const { fallback, onDismiss } = props;
+		if ( ! fallback ) {
+			return null;
+		}
+
+		const isTheme = config.packageType === 'theme';
+		const uploadLabel = isTheme
+			? __( 'Appearance → Themes → Add New → Upload Theme', 'storeengine-sdk' )
+			: __( 'Plugins → Add New → Upload Plugin', 'storeengine-sdk' );
+
+		const steps = [
+			config.storeDashboardUrl
+				? sprintf( __( 'Download the latest %s package (.zip) from your account dashboard.', 'storeengine-sdk' ), config.packageName )
+				: sprintf( __( 'Download the latest %s package (.zip) from where you purchased it.', 'storeengine-sdk' ), config.packageName ),
+			sprintf( __( 'In another tab, go to %s.', 'storeengine-sdk' ), uploadLabel ),
+			__( 'Upload the .zip you downloaded and choose “Replace current with uploaded” if asked.', 'storeengine-sdk' ),
+			__( 'Your settings and data are preserved — this only replaces the files.', 'storeengine-sdk' ),
+		];
+
+		return h( 'div', { className: 'se-sdk-manual-update' },
+			h( 'div', { className: 'se-sdk-manual-update-head' },
+				h( 'strong', null, __( 'Automatic update didn’t complete — update manually', 'storeengine-sdk' ) ),
+				h( 'button', {
+					type: 'button',
+					className: 'se-sdk-manual-dismiss',
+					'aria-label': __( 'Dismiss', 'storeengine-sdk' ),
+					onClick: onDismiss,
+				}, '×' )
+			),
+			fallback.message && h( 'p', { className: 'se-sdk-manual-reason' }, fallback.message ),
+			h( 'ol', { className: 'se-sdk-manual-steps' },
+				steps.map( ( s, i ) => h( 'li', { key: i }, s ) )
+			),
+			h( 'div', { className: 'se-sdk-manual-actions' },
+				config.storeDashboardUrl && h( 'a', {
+					className: 'se-sdk-btn',
+					href: config.storeDashboardUrl,
+					target: '_blank',
+					rel: 'noopener noreferrer',
+				}, __( 'Open account dashboard', 'storeengine-sdk' ) ),
+				h( 'a', {
+					className: 'se-sdk-btn se-sdk-btn-secondary',
+					href: config.uploadUrl,
+					target: '_blank',
+					rel: 'noopener noreferrer',
+				}, isTheme ? __( 'Go to Upload Theme', 'storeengine-sdk' ) : __( 'Go to Upload Plugin', 'storeengine-sdk' ) )
+			)
+		);
+	}
+
+	/* =========================================================
 	   Rollback shortcut banner (only when previous_version known)
 	   ========================================================= */
 	function RollbackBanner( props ) {
@@ -623,6 +679,7 @@
 		const [ savingBeta, setSavingBeta ] = useState( false );
 		const [ toast, setToast ] = useState( null );
 		const [ limitModal, setLimitModal ] = useState( null );
+		const [ manualFallback, setManualFallback ] = useState( null );
 
 		const refreshStatus = useCallback( () => {
 			return api( config, 'updates/status' ).then( setState );
@@ -674,6 +731,7 @@
 
 		const handleInstall = useCallback( ( version ) => {
 			setInstalling( true );
+			setManualFallback( null );
 			setInstallLog( [ { level: 'info', message: __( 'Starting…', 'storeengine-sdk' ), time: Date.now() / 1000 } ] );
 			api( config, 'updates/install', { method: 'POST', body: version ? { version } : {} } )
 				.then( ( res ) => {
@@ -689,6 +747,9 @@
 				.catch( ( err ) => {
 					if ( err.log ) setInstallLog( err.log );
 					showToast( err.message, 'error' );
+					// Automatic install failed — surface step-by-step manual
+					// download+upload instructions instead of a dead end.
+					setManualFallback( { message: err.message, version: version } );
 					refreshStatus();
 				} )
 				.finally( () => setInstalling( false ) );
@@ -776,6 +837,7 @@
 			h( StatusHero, { state, onCheckNow: handleCheckNow, checking } ),
 
 			h( UpdateBanner, { state, installing, installLog, onInstall: handleInstall } ),
+			h( ManualUpdateNotice, { fallback: manualFallback, onDismiss: () => setManualFallback( null ) } ),
 			h( RollbackBanner, { state, installing, onRollback: handleInstall } ),
 
 			! config.isFree && h( LicenseCard, {
