@@ -252,9 +252,9 @@ final class SE_License_SDK_Updater {
 
 	/**
 	 * Effective list of package-relative paths that must exist for an update to
-	 * be accepted. Uses the consumer's declared `critical_paths`, or a
-	 * conservative default. Filterable so a site can trim/extend without
-	 * re-vendoring the SDK.
+	 * be accepted. Uses the consumer's declared `critical_paths`, falling back
+	 * to `vendor/autoload.php` only when the installed build actually ships one.
+	 * Filterable so a site can trim/extend without re-vendoring the SDK.
 	 *
 	 * @return array
 	 */
@@ -262,9 +262,22 @@ final class SE_License_SDK_Updater {
 		$paths = $this->client->getCriticalPaths();
 
 		if ( null === $paths ) {
-			// Conservative default: the autoloader almost every consumer ships
-			// and hard-requires. Kept minimal to avoid false-positive blocks.
-			$paths = [ 'vendor/autoload.php' ];
+			// Derive the default from the installed copy rather than assuming a
+			// layout. Until 1.5.6 this was a blind [ 'vendor/autoload.php' ],
+			// which permanently blocked updates for any consumer that ships no
+			// vendor/ directory — a pro plugin with no runtime Composer
+			// dependencies, or one that vendors somewhere else. Their packages
+			// were rejected for a file they never had, with no way to recover:
+			// the check runs from the *installed* build, so declaring
+			// `critical_paths` in a later release cannot rescue a site already
+			// running an older one.
+			//
+			// Only require the autoloader when the installed build actually has
+			// one. That keeps the protection for the consumers it was written
+			// for and stops it firing where it was always a false positive. An
+			// explicitly declared `critical_paths` is untouched by this.
+			$installed = trailingslashit( dirname( $this->client->getPackageFile() ) ) . 'vendor/autoload.php';
+			$paths     = file_exists( $installed ) ? [ 'vendor/autoload.php' ] : [];
 		}
 
 		/**
