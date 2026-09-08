@@ -71,6 +71,17 @@ final class SE_License_SDK_Updater {
 
 		add_action( 'init', [ $this, 'clear_package_cache' ], - 1 );
 
+		// Drop the cached version info on every license lifecycle transition,
+		// not just the two fired by the PHP license form. `emit_license_event()`
+		// is reached from the form, the REST endpoints, WP-CLI and the scheduled
+		// re-check alike, so hooking the events here covers every path a license
+		// can change through. Registered from init() (plugins_loaded) rather than
+		// from clear_package_cache() (`init`) so the listeners are armed for REST
+		// and cron requests too.
+		$this->client->add_action( 'license_activated', [ $this, 'delete_cached_version_info' ] );
+		$this->client->add_action( 'license_deactivated', [ $this, 'delete_cached_version_info' ] );
+		$this->client->add_action( 'license_grace_expired', [ $this, 'delete_cached_version_info' ] );
+
 		// Capture upgrades performed by WP itself (cron, plugins.php "update
 		// now" link, our own Install_Job) so the SDK can offer a one-click
 		// rollback to the previous version.
@@ -405,7 +416,15 @@ final class SE_License_SDK_Updater {
 			$transient_data = new stdClass;
 		}
 
-		if ( ! empty( $transient_data->response ) && ! empty( $transient_data->response[ $this->client->getBasename() ] ) ) {
+		$basename = $this->client->getBasename();
+
+		// Our row is already populated — most likely a value this filter wrote
+		// on an earlier request. Don't refetch, but DO re-apply the license gate
+		// so a download URL obtained while the license was active cannot outlive
+		// the license itself.
+		if ( ! empty( $transient_data->response ) && ! empty( $transient_data->response[ $basename ] ) ) {
+			$transient_data->response[ $basename ] = $this->strip_unlicensed_package( $transient_data->response[ $basename ] );
+
 			return $transient_data;
 		}
 
@@ -414,10 +433,10 @@ final class SE_License_SDK_Updater {
 		if ( false !== $project_info && is_object( $project_info ) && isset( $project_info->new_version ) ) {
 			if ( version_compare( $this->client->getProjectVersion(), $project_info->new_version, '<' ) ) {
 				unset( $project_info->sections );
-				$transient_data->response[ $this->client->getBasename() ] = $project_info;
+				$transient_data->response[ $basename ] = $this->strip_unlicensed_package( $project_info );
 			}
 
-			$transient_data->checked[ $this->client->getBasename() ] = $this->client->getProjectVersion();
+			$transient_data->checked[ $basename ] = $this->client->getProjectVersion();
 		}
 
 		return $transient_data;
@@ -441,7 +460,13 @@ final class SE_License_SDK_Updater {
 			$transient_data = new stdClass();
 		}
 
-		if ( ! empty( $transient_data->response ) && ! empty( $transient_data->response[ $this->client->getSlug() ] ) ) {
+		$slug = $this->client->getSlug();
+
+		// See check_plugin_update() — re-gate an already-populated row instead of
+		// trusting a package URL cached under a license that may since have gone.
+		if ( ! empty( $transient_data->response ) && ! empty( $transient_data->response[ $slug ] ) ) {
+			$transient_data->response[ $slug ] = $this->strip_unlicensed_package( $transient_data->response[ $slug ] );
+
 			return $transient_data;
 		}
 
@@ -450,7 +475,7 @@ final class SE_License_SDK_Updater {
 		if ( false !== $project_info && is_object( $project_info ) && isset( $project_info->new_version ) ) {
 
 			if ( version_compare( $this->client->getProjectVersion(), $project_info->new_version, '<' ) ) {
-				$transient_data->response[ $this->client->getSlug() ] = (array) $project_info;
+				$transient_data->response[ $slug ] = (array) $this->strip_unlicensed_package( $project_info );
 			}
 
 			$transient_data->last_checked                        = time();
@@ -458,6 +483,68 @@ final class SE_License_SDK_Updater {
 		}
 
 		return $transient_data;
+	}
+
+	/**
+	 * Remove the download URL from an update payload when this product has no
+	 * valid license.
+	 *
+	 * The license server already omits `package` for an unlicensed site, so
+	 * under normal conditions this is a no-op. It matters because the response
+	 * is cached — in this SDK's own transient and again in WordPress's
+	 * `update_plugins` site transient, which plugins.php renders from directly.
+	 * A package URL fetched while the license was active used to survive the
+	 * license being deactivated, and WordPress decides between "update now" and
+	 * "Automatic update is unavailable" purely on `empty( $response->package )`.
+	 * Those signed URLs stay valid on the server for days, so the stale row was
+	 * enough to let an unlicensed site pull a paid release from plugins.php.
+	 * Invalidating on the license lifecycle events (see init()) closes the
+	 * window; this closes it for any payload that predates the fix or reaches
+	 * the transient some other way.
+	 *
+	 * Free products are never gated. A license inside its offline grace period
+	 * still counts as valid, so a brief outage doesn't strip working updates.
+	 *
+	 * @param object|array $info Update payload, as stored in the update transient.
+	 *
+	 * @return object|array The payload, with `package`/`download_link` blanked
+	 *                      when the license doesn't cover it.
+	 */
+	private function strip_unlicensed_package( $info ) {
+		if ( ! $this->client->isPro() ) {
+			return $info;
+		}
+
+		$is_object = is_object( $info );
+
+		if ( ! $is_object && ! is_array( $info ) ) {
+			return $info;
+		}
+
+		if ( empty( $is_object ? ( $info->package ?? '' ) : ( $info['package'] ?? '' ) )
+		     && empty( $is_object ? ( $info->download_link ?? '' ) : ( $info['download_link'] ?? '' ) ) ) {
+			return $info;
+		}
+
+		if ( $this->client->license( false )->is_valid() ) {
+			return $info;
+		}
+
+		// Don't mutate a shared/cached instance — the caller may be handing us
+		// the object still held by the version-info transient.
+		$info = $is_object ? clone $info : $info;
+
+		foreach ( [ 'package', 'download_link' ] as $field ) {
+			if ( $is_object ) {
+				if ( property_exists( $info, $field ) ) {
+					$info->{$field} = '';
+				}
+			} elseif ( array_key_exists( $field, $info ) ) {
+				$info[ $field ] = '';
+			}
+		}
+
+		return $info;
 	}
 
 	/**
@@ -475,7 +562,13 @@ final class SE_License_SDK_Updater {
 
 		$info = get_transient( $this->cache_key . $which );
 
-		if ( ! $info || ! isset( $info->name ) ) {
+		// The two payload shapes carry different identifying fields: the
+		// `*_information` routes include `name` (they merge in package-info),
+		// while the `*_update` route returns only the version envelope. Testing
+		// for `name` alone therefore rejected every cached update payload, so
+		// set_cached_version_info() wrote a transient that was never once read
+		// back and every update check hit the license server.
+		if ( ! $info || ( ! isset( $info->name ) && ! isset( $info->new_version ) ) ) {
 			return false; // Cache is expired.
 		}
 
@@ -625,7 +718,7 @@ final class SE_License_SDK_Updater {
 			return $data;
 		}
 
-		return $this->get_information( 'plugin_information', ! empty( $args->force ) );
+		return $this->strip_unlicensed_package( $this->get_information( 'plugin_information', ! empty( $args->force ) ) );
 	}
 
 	public function themes_api_filter( $data, string $action = '', $args = null ) {
@@ -637,9 +730,15 @@ final class SE_License_SDK_Updater {
 			return $data;
 		}
 
-		return $this->get_information( 'theme_information', ! empty( $args->force ) );
+		return $this->strip_unlicensed_package( $this->get_information( 'theme_information', ! empty( $args->force ) ) );
 	}
 
+	/**
+	 * Legacy invalidation hooks fired by the SDK's own PHP license form. Kept
+	 * for consumers that render that form; every other path (REST, WP-CLI, the
+	 * scheduled re-check) is covered by the license lifecycle events wired up in
+	 * init(). Both are idempotent, so overlapping is harmless.
+	 */
 	public function clear_package_cache() {
 		add_action( $this->client->getHookName( 'license-activate' ), [ $this, 'delete_cached_version_info' ] );
 		add_action( $this->client->getHookName( 'license-deactivate' ), [ $this, 'delete_cached_version_info' ] );
@@ -744,7 +843,9 @@ final class SE_License_SDK_Updater {
 					if ( $isObject ) {
 						$input->{$child} = (array) $input->{$child};
 					} else {
-						$input[ $child ] = (array) $input->{$child};
+						// Was `(array) $input->{$child}` — reading an object
+						// property off an array, which warns and yields [].
+						$input[ $child ] = (array) $input[ $child ];
 					}
 				}
 			}

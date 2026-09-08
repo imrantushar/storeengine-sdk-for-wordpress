@@ -174,7 +174,14 @@ final class SE_License_SDK_Rest_API {
 	 * @return bool|WP_Error
 	 */
 	public function permissions_check() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		// A network-activated product keeps its license and update settings in
+		// site options — one license for the whole network — and its UI lives in
+		// the Network Admin. Every site admin on a multisite has manage_options,
+		// so gating on that alone would let any one of them deactivate the
+		// license, or flip the beta channel, for every site on the network.
+		$capability = $this->client->is_network_activated() ? 'manage_network_options' : 'manage_options';
+
+		if ( ! current_user_can( $capability ) ) {
 			return new WP_Error( 'rest_forbidden', __( 'You do not have permission to manage licenses.', 'storeengine-sdk' ), [ 'status' => 403 ] );
 		}
 

@@ -986,21 +986,26 @@ final class SE_License_SDK_License {
 	 * @param array $license Current license array.
 	 */
 	protected function deactivate_local_license( array $license ) {
-		$license = wp_parse_args(
-			[
-				'license'     => '',
-				'status'      => 'inactive',
-				'device_id'   => $this->client->get_device_id(),
-				'slug'        => $this->client->getSlug(),
-				'product_id'  => $this->client->getProductId(),
-				'remaining'   => 0,
-				'activations' => 0,
-				'limit'       => 0,
-				'unlimited'   => false,
-				'expires'     => '',
-			],
-			$license
-		);
+		// `license` (the key) and `expires` are deliberately preserved: this
+		// method is the "server said no" / "grace ran out" path, not a user
+		// asking to unlink the site, and the caller's contract is that a later
+		// renewal can reactivate without the user digging out their key again.
+		//
+		// This used to pass the overrides below as wp_parse_args()' FIRST
+		// argument, i.e. as `$args` rather than `$defaults`, so they won every
+		// key — including `'license' => ''` and `'expires' => ''`. The stored key
+		// was destroyed on every expiry, revocation and grace timeout, which is
+		// the exact opposite of what both this docblock and the call sites say.
+		$license = array_merge( $license, [
+			'status'      => 'inactive',
+			'device_id'   => $this->client->get_device_id(),
+			'slug'        => $this->client->getSlug(),
+			'product_id'  => $this->client->getProductId(),
+			'remaining'   => 0,
+			'activations' => 0,
+			'limit'       => 0,
+			'unlimited'   => false,
+		] );
 
 		$this->set_license( $license );
 	}
@@ -1551,13 +1556,23 @@ final class SE_License_SDK_License {
 		$this->error_code = '';
 		$this->error_data = [];
 
+		$license = $this->get_license();
+
+		// Re-activating after an expiry/revocation: deactivate_local_license()
+		// keeps the key on file precisely so the user can renew upstream and
+		// click Activate without re-typing it. Fall back to the stored key when
+		// the caller sends none.
+		if ( empty( $postData['license_key'] ) && ! empty( $license['license'] ) ) {
+			$postData['license_key'] = $license['license'];
+		}
+
 		if ( empty( $postData['license_key'] ) ) {
 			$this->error = __( 'The license key field is required.', 'storeengine-sdk' );
+			$this->updating_license( false );
 
 			return;
 		}
 
-		$license   = $this->get_license();
 		$updateKey = $this->validate_license_data( $license ) && $postData['license_key'] !== $license['license']; // Check if it's a change request.
 
 		if ( $updateKey ) {
@@ -1571,6 +1586,8 @@ final class SE_License_SDK_License {
 					} else {
 						$this->error = __( 'Unknown error occurred.', 'storeengine-sdk' );
 					}
+
+					$this->updating_license( false );
 
 					return;
 				}

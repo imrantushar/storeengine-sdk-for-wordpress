@@ -233,6 +233,25 @@ $client->add_action( 'license_activated', function ( $license ) {
 | `update_installed` | This product's files were updated in place (native "Update now"/bulk/auto-update, or the SDK installer). | `$previous_version` |
 | `update_failed` | An SDK-driven install failed. | `$wp_error, $target_version, $current_version` |
 
+### Updates and license state
+
+Updates for a pro product are gated on the license. The license server omits the
+download URL for an unlicensed site, and WordPress renders "Automatic update is
+unavailable for this plugin" whenever an update row has no `package`. Because the
+server response is cached locally, the SDK also:
+
+- drops the cached version info on every license lifecycle transition
+  (`license_activated`, `license_deactivated`, `license_grace_expired`), so a
+  download URL obtained under an active license cannot outlive it — this covers
+  the PHP license form, the REST endpoints, WP-CLI and the scheduled re-check
+  alike; and
+- blanks `package` / `download_link` for a pro product with no valid license as
+  the update payload is injected, as a backstop for any payload cached before
+  this behaviour existed.
+
+Free products are never gated, and a license inside its **offline grace period**
+still counts as valid — a server outage does not strip working updates.
+
 ### Offline grace period
 
 If the license server can't be reached during the daily re-check (DNS/timeout/TLS
