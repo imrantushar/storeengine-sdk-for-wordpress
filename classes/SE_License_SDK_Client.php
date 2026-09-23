@@ -485,6 +485,12 @@ final class SE_License_SDK_Client {
 
 		if ( ! empty( $args['script_handler'] ) && is_string( $args['script_handler'] ) ) {
 			add_action( 'admin_enqueue_scripts', function () use ( $client, $args ) {
+				// wp_localize_script() drops data for an unregistered handle, so
+				// don't build the params on admin pages the consumer never loads.
+				if ( ! wp_script_is( $args['script_handler'], 'registered' ) ) {
+					return;
+				}
+
 				wp_localize_script( $args['script_handler'], $client->get_js_param_name(), $client->get_js_params() );
 			}, PHP_INT_MAX );
 		}
@@ -944,14 +950,16 @@ final class SE_License_SDK_Client {
 				? self_admin_url( 'plugin-install.php?tab=upload' )
 				: self_admin_url( 'theme-install.php?upload' );
 
-			if ( 'plugin' === $this->getType() ) {
-				$update = $this->updater()->plugins_api_filter( false, 'plugin_information', (object) [ 'slug' => $this->getSlug(), ] );
-			} else {
-				$update = $this->updater()->themes_api_filter( false, 'theme_information', (object) [ 'slug' => $this->getSlug(), ] );
-			}
+			// Cache only. These params are built on every admin page that
+			// enqueues the consumer's script (and, via `script_handler`, on
+			// every admin page), so fetching here sent a license-server
+			// request per page load whenever the cache was cold or the last
+			// check had failed. The cache is filled by WordPress's own update
+			// check and by explicit "check for updates" actions.
+			$update = $this->updater()->get_cached_update_info();
 
-			$data['package']['update'] = $update;
-			$data['package']['need_update'] = $update ? version_compare( $this->getProjectVersion(), $update->new_version, '<' ): false;
+			$data['package']['update']      = $update ?: false;
+			$data['package']['need_update'] = $update && isset( $update->new_version ) && version_compare( $this->getProjectVersion(), $update->new_version, '<' );
 		}
 
 		if ( $this->maybe_init_insights() ) {
@@ -1172,6 +1180,7 @@ final class SE_License_SDK_Client {
 			'method'   => 'POST',
 			'timeout'  => 45, // phpcs:ignore WordPressVIPMinimum.Performance.RemoteRequestTimeout.timeout_timeout
 			'url'      => false,
+			'interactive' => false, // true = explicit user action; ignores the circuit breaker.
 		] );
 
 		// Request URL
@@ -1223,20 +1232,27 @@ final class SE_License_SDK_Client {
 		// 1.5.2 the order was reversed and `version` was always clobbered
 		// by getProjectVersion(), so rollback always re-downloaded the
 		// currently-installed version's zip.
-		$body = array_merge( [
-			'is_free'     => $this->is_free,
-			'slug'        => $this->getSlug(),
-			'site_url'    => site_url(),
-			'product_id'  => $this->getProductId(),
-			'version'     => $this->getProjectVersion(),
-			'sdk_version' => $this->getVersion(),
-			'device_id'   => $this->get_device_id(),
-			'locale'      => get_locale(),
-		], $args['body'] );
+		$identity = $this->get_request_identity();
+		$body     = array_merge( $identity, $args['body'] );
 
-		// Add license info for every request, if available.
-		if ( ! $this->is_free && $this->license() && $this->license()->get_key() && empty( $body['license'] ) ) {
-			$body['license'] = $this->license()->get_key();
+		// A caller's empty `license` never blanks the stored key (pre-1.5.9 behaviour).
+		if ( empty( $body['license'] ) && ! empty( $identity['license'] ) ) {
+			$body['license'] = $identity['license'];
+		}
+
+		// Server known to be down (circuit breaker open): answer immediately
+		// instead of making the site wait for another timeout. Only explicit
+		// user actions (activating/deactivating a license, downloading a
+		// package, "check now") still go out and can close the breaker early.
+		$interactive = ! empty( $args['interactive'] ) || in_array( $args['route'], [ 'activate-license', 'deactivate-license', 'get-package' ], true );
+
+		if ( ! $interactive && self::is_server_down( $url ) ) {
+			$response = new WP_Error(
+				'se_srv_server_unavailable',
+				__( 'The license server is temporarily unavailable. The request will be retried later.', 'storeengine-sdk' )
+			);
+
+			return $this->format_response( $response, $args['route'] );
 		}
 
 		$ssl_verify   = apply_filters( 'https_local_ssl_verify', true ); // phpcs:ignore WordPressVIPMinimum.Performance.RemoteRequestTimeout.timeout_timeout
@@ -1268,6 +1284,8 @@ final class SE_License_SDK_Client {
 
 		remove_filter( 'http_request_reject_unsafe_urls', '__return_false' );
 
+		self::record_server_health( $url, $response );
+
 		/**
 		 * After request to api server.
 		 *
@@ -1284,9 +1302,156 @@ final class SE_License_SDK_Client {
 		 */
 		do_action( $this->getHookName( 'after_client_request_' . $args['route'] ), $response, $args['route'] );
 
-		$routes = [ 'activate-license', 'deactivate-license', 'check-license', 'package-info', 'check-update' ];
+		return $this->format_response( $response, $args['route'] );
+	}
 
-		if ( in_array( $args['route'], $routes, true ) ) {
+	/**
+	 * Per-product fields sent with every request (and with each item of a
+	 * batched update check).
+	 *
+	 * @return array
+	 */
+	public function get_request_identity(): array {
+		$identity = [
+			'is_free'     => $this->is_free,
+			'slug'        => $this->getSlug(),
+			'site_url'    => site_url(),
+			'product_id'  => $this->getProductId(),
+			'version'     => $this->getProjectVersion(),
+			'sdk_version' => $this->getVersion(),
+			'device_id'   => $this->get_device_id(),
+			'locale'      => get_locale(),
+		];
+
+		// Add license info for every request, if available.
+		if ( ! $this->is_free && $this->license() && $this->license()->get_key() ) {
+			$identity['license'] = $this->license()->get_key();
+		}
+
+		return $identity;
+	}
+
+	/**
+	 * Key identifying the license server this product talks to, so products
+	 * that share a server can share one breaker and one batched request.
+	 *
+	 * @return string
+	 */
+	public function get_server_key(): string {
+		return self::server_key( $this->endpoint( 'check-update' ) );
+	}
+
+	/**
+	 * Seconds until this product's license server may be contacted again by
+	 * background requests (0 = now).
+	 *
+	 * @return int
+	 */
+	public function get_server_retry_in(): int {
+		return self::get_server_retry_in_for( $this->endpoint( 'check-update' ) );
+	}
+
+	/**
+	 * @param string $url Any endpoint URL on the server.
+	 *
+	 * @return string
+	 */
+	private static function server_key( string $url ): string {
+		$parts = wp_parse_url( $url );
+
+		return md5( strtolower( ( $parts['host'] ?? '' ) . ( $parts['path'] ?? '' ) ) );
+	}
+
+	/**
+	 * Whether the circuit breaker for this server is open.
+	 *
+	 * The state is shared by every product on the site that uses the same
+	 * server, so once one request finds it down, none of the others wait on it
+	 * either.
+	 *
+	 * @param string $url Endpoint URL.
+	 *
+	 * @return bool
+	 */
+	public static function is_server_down( string $url ): bool {
+		return self::get_server_retry_in_for( $url ) > 0;
+	}
+
+	/**
+	 * Seconds until the breaker for this server closes (0 when it is closed).
+	 *
+	 * @param string $url Endpoint URL.
+	 *
+	 * @return int
+	 */
+	public static function get_server_retry_in_for( string $url ): int {
+		$state = get_site_transient( 'se_sdk_srv_' . self::server_key( $url ) );
+
+		if ( ! is_array( $state ) || empty( $state['until'] ) ) {
+			return 0;
+		}
+
+		return max( 0, (int) $state['until'] - time() );
+	}
+
+	/**
+	 * Open (or extend) the breaker after a transport-level failure, close it
+	 * after any answer from the server.
+	 *
+	 * Back-off doubles with each consecutive failure: 15 min, 30 min, 1 h … up
+	 * to 6 h. A `Retry-After` header from the server wins (capped at a day).
+	 *
+	 * @param string          $url      Endpoint URL.
+	 * @param array|WP_Error  $response Raw HTTP response.
+	 */
+	private static function record_server_health( string $url, $response ) {
+		$key  = 'se_sdk_srv_' . self::server_key( $url );
+		$code = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
+
+		$failed = is_wp_error( $response ) || 0 === $code || $code >= 500 || in_array( $code, [ 408, 429 ], true );
+
+		if ( ! $failed ) {
+			if ( false !== get_site_transient( $key ) ) {
+				delete_site_transient( $key );
+			}
+
+			return;
+		}
+
+		$state = get_site_transient( $key );
+		$fails = is_array( $state ) ? (int) ( $state['fails'] ?? 0 ) + 1 : 1;
+		$delay = min( 6 * HOUR_IN_SECONDS, 15 * MINUTE_IN_SECONDS * ( 2 ** min( $fails - 1, 5 ) ) );
+
+		$retry_after = is_wp_error( $response ) ? '' : wp_remote_retrieve_header( $response, 'retry-after' );
+		if ( is_numeric( $retry_after ) && (int) $retry_after > 0 ) {
+			$delay = min( DAY_IN_SECONDS, (int) $retry_after );
+		}
+
+		/**
+		 * Filter how long to stop contacting a license server after a failure.
+		 *
+		 * @param int    $delay Seconds.
+		 * @param int    $fails Consecutive failures.
+		 * @param string $url   Endpoint URL.
+		 */
+		$delay = (int) apply_filters( 'se_license_sdk_server_backoff', $delay, $fails, $url );
+
+		set_site_transient( $key, [ 'until' => time() + $delay, 'fails' => $fails ], $delay + HOUR_IN_SECONDS );
+	}
+
+	/**
+	 * Normalise a raw HTTP response for the routes whose callers expect the
+	 * `success` / `data` envelope. Other routes get the raw response.
+	 *
+	 * @param array|WP_Error $response Raw response.
+	 * @param string         $route    Route.
+	 *
+	 * @return array|WP_Error
+	 */
+	private function format_response( $response, string $route ) {
+		$routes = [ 'activate-license', 'deactivate-license', 'check-license', 'package-info', 'check-update', 'check-updates' ];
+
+		if ( in_array( $route, $routes, true ) ) {
 			if ( is_wp_error( $response ) ) {
 				// Transport-level failure (DNS, timeout, TLS, connection refused,
 				// blocked outbound request): the server never gave a verdict, so
