@@ -259,6 +259,14 @@ final class SE_License_SDK_Client {
 	private $is_dirty = false;
 
 	/**
+	 * Depth of interactive() calls currently running. While > 0, requests are
+	 * treated as explicit user actions: longer timeout, circuit breaker ignored.
+	 *
+	 * @var int
+	 */
+	private $interactive_depth = 0;
+
+	/**
 	 * Initialize the class.
 	 *
 	 * @param string $package_file Main Plugin/Theme file path.
@@ -1223,7 +1231,6 @@ final class SE_License_SDK_Client {
 		 */
 		do_action( $this->getHookName( 'before_client_request_' . $args['route'] ), $args, $headers, $this->version, $url );
 
-		$timeout  = $this->validate_timeout( $args );
 
 		// Body. Caller-provided fields win over auto-added defaults — this
 		// matters for routes like /software/get-package where `version`
@@ -1244,7 +1251,13 @@ final class SE_License_SDK_Client {
 		// instead of making the site wait for another timeout. Only explicit
 		// user actions (activating/deactivating a license, downloading a
 		// package, "check now") still go out and can close the breaker early.
-		$interactive = ! empty( $args['interactive'] ) || in_array( $args['route'], [ 'activate-license', 'deactivate-license', 'get-package' ], true );
+		$interactive = $this->interactive_depth > 0 || ! empty( $args['interactive'] ) || in_array( $args['route'], [ 'activate-license', 'deactivate-license', 'get-package' ], true );
+
+		// A person is waiting on an explicit action: give a slow-but-working
+		// server time to answer. Until 1.6.0 these got the front-end cap of
+		// 5 seconds whenever they came through REST (is_admin() is false
+		// there), so activations failed whenever the server took longer.
+		$timeout = $interactive ? $this->get_interactive_timeout( $args ) : $this->validate_timeout( $args );
 
 		if ( ! $interactive && self::is_server_down( $url ) ) {
 			$response = new WP_Error(
@@ -1303,6 +1316,115 @@ final class SE_License_SDK_Client {
 		do_action( $this->getHookName( 'after_client_request_' . $args['route'] ), $response, $args['route'] );
 
 		return $this->format_response( $response, $args['route'] );
+	}
+
+	/**
+	 * Run $callback as an explicit user action: every license-server request
+	 * it makes gets the interactive timeout and ignores the circuit breaker.
+	 *
+	 * @param callable $callback Callback.
+	 *
+	 * @return mixed The callback's return value.
+	 */
+	public function interactive( callable $callback ) {
+		$this->interactive_depth++;
+
+		try {
+			return $callback();
+		} finally {
+			$this->interactive_depth--;
+		}
+	}
+
+	/**
+	 * Timeout for a request a person is waiting on.
+	 *
+	 * @param array $args Request args.
+	 *
+	 * @return int Seconds.
+	 */
+	private function get_interactive_timeout( array $args ): int {
+		$requested = isset( $args['timeout'] ) && $args['timeout'] ? (int) abs( $args['timeout'] ) : 30;
+
+		/**
+		 * Filter the timeout for explicit user actions (activate, deactivate,
+		 * "check now", install).
+		 *
+		 * @param int   $timeout Seconds (15–30 by default).
+		 * @param array $args    Request args.
+		 */
+		return (int) apply_filters( 'se_license_sdk_interactive_timeout', max( 15, min( 30, $requested ) ), $args );
+	}
+
+	/**
+	 * Spread a delay by ±$spread so thousands of sites that failed (or were
+	 * activated) at the same moment don't all come back at the same second.
+	 *
+	 * @param int   $seconds Base delay.
+	 * @param float $spread  Fraction, e.g. 0.25 for ±25 %.
+	 * @param bool  $up_only Only ever lengthen the delay (for server-requested waits).
+	 *
+	 * @return int
+	 */
+	public static function jitter( int $seconds, float $spread = 0.25, bool $up_only = false ): int {
+		if ( $seconds <= 0 ) {
+			return $seconds;
+		}
+
+		$range = (int) round( $seconds * $spread );
+
+		if ( $range < 1 ) {
+			return $seconds;
+		}
+
+		$min = $up_only ? 0 : - $range;
+
+		// wp_rand() is pluggable and may not exist this early in the request.
+		$offset = function_exists( 'wp_rand' ) ? wp_rand( $min, $range ) : mt_rand( $min, $range ); // phpcs:ignore WordPress.WP.AlternativeFunctions.rand_mt_rand
+
+		return max( 1, $seconds + $offset );
+	}
+
+	/**
+	 * Stop background requests to this product's server for a while, because
+	 * the server asked us to (`pause_background` in a response). Kept apart
+	 * from the failure breaker so a successful user action doesn't clear it.
+	 *
+	 * @param int $seconds Seconds (capped at 7 days).
+	 *
+	 * @return void
+	 */
+	public function pause_background( int $seconds ) {
+		$seconds = min( 7 * DAY_IN_SECONDS, max( 0, $seconds ) );
+		$key     = 'se_sdk_pause_' . $this->get_server_key();
+
+		if ( 0 === $seconds ) {
+			delete_site_transient( $key );
+
+			return;
+		}
+
+		$seconds = self::jitter( $seconds, 0.25, true );
+
+		set_site_transient( $key, [ 'until' => time() + $seconds ], $seconds );
+	}
+
+	/**
+	 * Apply instructions the license server sends back with update data.
+	 *
+	 * - `pause_background` (int seconds): stop background requests for that long;
+	 *   0 lifts an earlier pause.
+	 *
+	 * `next_check_in` is read by the updater, which owns the update cache.
+	 *
+	 * @param array $data Response data.
+	 *
+	 * @return void
+	 */
+	public function apply_server_directives( array $data ) {
+		if ( isset( $data['pause_background'] ) && is_numeric( $data['pause_background'] ) ) {
+			$this->pause_background( (int) $data['pause_background'] );
+		}
 	}
 
 	/**
@@ -1385,13 +1507,19 @@ final class SE_License_SDK_Client {
 	 * @return int
 	 */
 	public static function get_server_retry_in_for( string $url ): int {
-		$state = get_site_transient( 'se_sdk_srv_' . self::server_key( $url ) );
+		$key   = self::server_key( $url );
+		$until = 0;
 
-		if ( ! is_array( $state ) || empty( $state['until'] ) ) {
-			return 0;
+		// Failure breaker, then a pause the server asked for.
+		foreach ( [ 'se_sdk_srv_', 'se_sdk_pause_' ] as $prefix ) {
+			$state = get_site_transient( $prefix . $key );
+
+			if ( is_array( $state ) && ! empty( $state['until'] ) ) {
+				$until = max( $until, (int) $state['until'] );
+			}
 		}
 
-		return max( 0, (int) $state['until'] - time() );
+		return max( 0, $until - time() );
 	}
 
 	/**
@@ -1399,7 +1527,8 @@ final class SE_License_SDK_Client {
 	 * after any answer from the server.
 	 *
 	 * Back-off doubles with each consecutive failure: 15 min, 30 min, 1 h … up
-	 * to 6 h. A `Retry-After` header from the server wins (capped at a day).
+	 * to 6 h, each spread by ±25 %. A `Retry-After` header from the server wins
+	 * (capped at a day, spread upwards only).
 	 *
 	 * @param string          $url      Endpoint URL.
 	 * @param array|WP_Error  $response Raw HTTP response.
@@ -1422,9 +1551,14 @@ final class SE_License_SDK_Client {
 		$fails = is_array( $state ) ? (int) ( $state['fails'] ?? 0 ) + 1 : 1;
 		$delay = min( 6 * HOUR_IN_SECONDS, 15 * MINUTE_IN_SECONDS * ( 2 ** min( $fails - 1, 5 ) ) );
 
+		// ±25 % so sites that failed together don't all retry together the
+		// moment the server comes back.
+		$delay = self::jitter( $delay );
+
 		$retry_after = is_wp_error( $response ) ? '' : wp_remote_retrieve_header( $response, 'retry-after' );
 		if ( is_numeric( $retry_after ) && (int) $retry_after > 0 ) {
-			$delay = min( DAY_IN_SECONDS, (int) $retry_after );
+			// Never earlier than the server asked; spread upwards only.
+			$delay = self::jitter( min( DAY_IN_SECONDS, (int) $retry_after ), 0.25, true );
 		}
 
 		/**

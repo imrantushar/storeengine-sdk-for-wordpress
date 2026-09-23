@@ -202,11 +202,21 @@ final class SE_License_SDK_Update_Batch {
 		if ( ! empty( $response['success'] ) && isset( $response['data']['results'] ) && is_array( $response['data']['results'] ) ) {
 			$results = $response['data']['results'];
 
+			// Site-wide instructions (pause_background) from the server.
+			$sender->apply_server_directives( $response['data'] );
+
 			foreach ( $clients as $client ) {
 				$result = $results[ self::item_key( $client ) ] ?? null;
 
 				if ( is_array( $result ) && ! empty( $result['success'] ) && isset( $result['data'] ) && is_array( $result['data'] ) ) {
-					$client->updater()->store_update_response( [ 'success' => true, 'data' => $result['data'] ] );
+					$data = $result['data'];
+
+					// A batch-level next_check_in applies to items that don't set their own.
+					if ( ! isset( $data['next_check_in'] ) && isset( $response['data']['next_check_in'] ) ) {
+						$data['next_check_in'] = $response['data']['next_check_in'];
+					}
+
+					$client->updater()->store_update_response( [ 'success' => true, 'data' => $data ] );
 				} else {
 					$client->updater()->store_update_response( [ 'success' => false ] );
 				}

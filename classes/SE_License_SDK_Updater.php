@@ -370,7 +370,7 @@ final class SE_License_SDK_Updater {
 
 		// Only nag when a pro update is actually pending.
 		$which = $this->client->isPlugin() ? 'plugin_update' : 'theme_update';
-		$info  = get_transient( $this->cache_key . $which );
+		$info  = get_site_transient( $this->cache_key . $which );
 
 		$update_pending = is_object( $info )
 			&& ! empty( $info->new_version )
@@ -620,7 +620,7 @@ final class SE_License_SDK_Updater {
 			return false; // Force fetching update
 		}
 
-		$info = get_transient( $this->cache_key . $which );
+		$info = get_site_transient( $this->cache_key . $which );
 
 		if ( $this->is_failure_marker( $info ) ) {
 			return $info;
@@ -654,16 +654,26 @@ final class SE_License_SDK_Updater {
 	 */
 	private function set_cached_version_info( $value, $which ) {
 		if ( ! $value ) {
-			set_transient(
+			set_site_transient(
 				$this->cache_key . $which,
 				(object) [ 'se_sdk_check_failed' => time() ],
-				max( MINUTE_IN_SECONDS, $this->get_failure_ttl() )
+				SE_License_SDK_Client::jitter( max( MINUTE_IN_SECONDS, $this->get_failure_ttl() ) )
 			);
 
 			return;
 		}
 
-		set_transient( $this->cache_key . $which, $value, max( MINUTE_IN_SECONDS, $this->get_cache_ttl() ) );
+		$ttl = $this->get_cache_ttl();
+
+		// The server may say how long this answer is good for (`next_check_in`),
+		// so check frequency can be tuned without shipping a new SDK. Clamped so
+		// a bad value can neither hammer the server nor hide updates for long.
+		if ( is_object( $value ) && isset( $value->next_check_in ) && is_numeric( $value->next_check_in ) ) {
+			$ttl = min( 7 * DAY_IN_SECONDS, max( HOUR_IN_SECONDS, (int) $value->next_check_in ) );
+		}
+
+		// ±10 % so sites don't all expire, and ask again, in lockstep.
+		set_site_transient( $this->cache_key . $which, $value, SE_License_SDK_Client::jitter( max( MINUTE_IN_SECONDS, $ttl ), 0.1 ) );
 	}
 
 	/**
@@ -673,7 +683,7 @@ final class SE_License_SDK_Updater {
 	public function delete_cached_version_info() {
 		$this->runtime_cache = [];
 
-		delete_transient( $this->cache_key );
+		delete_site_transient( $this->cache_key );
 
 		if ( $this->client->isPlugin() ) {
 			delete_site_transient( 'update_plugins' );
@@ -684,11 +694,11 @@ final class SE_License_SDK_Updater {
 		$actions = [ 'plugin_update', 'plugin_information', 'theme_update', 'theme_information' ];
 
 		foreach ( $actions as $which ) {
-			delete_transient( $this->cache_key . $which );
-			delete_transient( $this->cache_key . $which . '_lock' );
+			delete_site_transient( $this->cache_key . $which );
+			delete_site_transient( $this->cache_key . $which . '_lock' );
 		}
 
-		delete_transient( $this->client->getHookName( 'versions_list' ) );
+		delete_site_transient( $this->client->getHookName( 'versions_list' ) );
 	}
 
 	/**
@@ -740,19 +750,19 @@ final class SE_License_SDK_Updater {
 		$lock = $this->cache_key . $action . '_lock';
 
 		if ( ! $force ) {
-			if ( get_transient( $lock ) ) {
+			if ( get_site_transient( $lock ) ) {
 				// Another request is already refreshing this product.
 				return false;
 			}
 
-			set_transient( $lock, 1, MINUTE_IN_SECONDS );
+			set_site_transient( $lock, 1, MINUTE_IN_SECONDS );
 		}
 
 		$project_info = $this->get_updates( $action, $force );
 
 		$this->set_cached_version_info( $project_info, $action );
 
-		delete_transient( $lock );
+		delete_site_transient( $lock );
 
 		$this->runtime_cache[ $action ] = $project_info;
 
@@ -776,7 +786,7 @@ final class SE_License_SDK_Updater {
 	 * @return object|false
 	 */
 	private function read_cache( string $action ) {
-		$info = get_transient( $this->cache_key . $action );
+		$info = get_site_transient( $this->cache_key . $action );
 
 		if ( ! is_object( $info ) || $this->is_failure_marker( $info ) || ( ! isset( $info->name ) && ! isset( $info->new_version ) ) ) {
 			return false;
@@ -792,7 +802,7 @@ final class SE_License_SDK_Updater {
 	 * @return bool
 	 */
 	public function needs_refresh(): bool {
-		return false === get_transient( $this->cache_key . $this->get_update_action() );
+		return false === get_site_transient( $this->cache_key . $this->get_update_action() );
 	}
 
 	/**
@@ -829,10 +839,10 @@ final class SE_License_SDK_Updater {
 
 		unset( $this->runtime_cache[ $action ] );
 
-		set_transient(
+		set_site_transient(
 			$this->cache_key . $action,
 			(object) [ 'se_sdk_check_failed' => time() ],
-			max( MINUTE_IN_SECONDS, $this->get_failure_ttl(), $retry_in )
+			max( MINUTE_IN_SECONDS, SE_License_SDK_Client::jitter( $this->get_failure_ttl() ), $retry_in )
 		);
 	}
 
@@ -864,7 +874,7 @@ final class SE_License_SDK_Updater {
 		$type = $this->client->isPlugin() ? 'plugin' : 'theme';
 
 		foreach ( [ $type . '_information', $type . '_update' ] as $which ) {
-			$info = get_transient( $this->cache_key . $which );
+			$info = get_site_transient( $this->cache_key . $which );
 
 			if ( is_object( $info ) && ! $this->is_failure_marker( $info ) && isset( $info->new_version ) ) {
 				return $this->strip_unlicensed_package( $this->__children_to_array( $info, [ 'icons', 'banners', 'sections' ] ) );
@@ -908,6 +918,8 @@ final class SE_License_SDK_Updater {
 
 		if ( isset( $response['success'] ) && $response['success'] ) {
 			$data = $response['data'];
+
+			$this->client->apply_server_directives( is_array( $data ) ? $data : [] );
 
 			if ( 'plugin_update' !== $action && 'theme_update' !== $action ) {
 				// information -> package-info
