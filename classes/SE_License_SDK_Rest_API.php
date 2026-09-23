@@ -356,9 +356,47 @@ final class SE_License_SDK_Rest_API {
 	}
 
 	/**
-	 * GET /updates/versions — proxy the server's version history.
+	 * GET /updates/versions — the server's version history, cached.
+	 *
+	 * The license panel requests this every time it mounts; before 1.5.9 each
+	 * mount was a license-server round trip. Pass `force=true` (the panel's
+	 * Refresh button) to bypass the cache. The cache is also dropped with the
+	 * rest of the version info on license changes.
+	 *
+	 * @param WP_REST_Request $request The request object.
+	 *
+	 * @return WP_REST_Response|WP_Error
 	 */
-	public function updates_versions() {
+	public function updates_versions( WP_REST_Request $request ) {
+		$key = $this->client->getHookName( 'versions_list' );
+
+		if ( ! $request->get_param( 'force' ) ) {
+			$cached = get_transient( $key );
+
+			if ( is_array( $cached ) ) {
+				return rest_ensure_response( $cached );
+			}
+		}
+
+		$result = $this->fetch_versions();
+
+		if ( ! is_wp_error( $result ) ) {
+			$data = $result instanceof WP_REST_Response ? $result->get_data() : $result;
+
+			if ( is_array( $data ) ) {
+				set_transient( $key, $data, (int) apply_filters( $this->client->getHookName( 'versions_cache_ttl' ), 6 * HOUR_IN_SECONDS ) );
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Proxy the server's version history.
+	 *
+	 * @return WP_REST_Response|WP_Error
+	 */
+	private function fetch_versions() {
 		if ( $this->client->isFree() ) {
 			$body = [];
 		} else {

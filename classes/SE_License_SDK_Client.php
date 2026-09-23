@@ -485,6 +485,12 @@ final class SE_License_SDK_Client {
 
 		if ( ! empty( $args['script_handler'] ) && is_string( $args['script_handler'] ) ) {
 			add_action( 'admin_enqueue_scripts', function () use ( $client, $args ) {
+				// wp_localize_script() drops data for an unregistered handle, so
+				// don't build the params on admin pages the consumer never loads.
+				if ( ! wp_script_is( $args['script_handler'], 'registered' ) ) {
+					return;
+				}
+
 				wp_localize_script( $args['script_handler'], $client->get_js_param_name(), $client->get_js_params() );
 			}, PHP_INT_MAX );
 		}
@@ -944,14 +950,16 @@ final class SE_License_SDK_Client {
 				? self_admin_url( 'plugin-install.php?tab=upload' )
 				: self_admin_url( 'theme-install.php?upload' );
 
-			if ( 'plugin' === $this->getType() ) {
-				$update = $this->updater()->plugins_api_filter( false, 'plugin_information', (object) [ 'slug' => $this->getSlug(), ] );
-			} else {
-				$update = $this->updater()->themes_api_filter( false, 'theme_information', (object) [ 'slug' => $this->getSlug(), ] );
-			}
+			// Cache only. These params are built on every admin page that
+			// enqueues the consumer's script (and, via `script_handler`, on
+			// every admin page), so fetching here sent a license-server
+			// request per page load whenever the cache was cold or the last
+			// check had failed. The cache is filled by WordPress's own update
+			// check and by explicit "check for updates" actions.
+			$update = $this->updater()->get_cached_update_info();
 
-			$data['package']['update'] = $update;
-			$data['package']['need_update'] = $update ? version_compare( $this->getProjectVersion(), $update->new_version, '<' ): false;
+			$data['package']['update']      = $update ?: false;
+			$data['package']['need_update'] = $update && isset( $update->new_version ) && version_compare( $this->getProjectVersion(), $update->new_version, '<' );
 		}
 
 		if ( $this->maybe_init_insights() ) {

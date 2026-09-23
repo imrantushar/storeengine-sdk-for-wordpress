@@ -40,6 +40,15 @@ final class SE_License_SDK_Updater {
 	private $disable_cache = false;
 
 	/**
+	 * Results already fetched during this request, keyed by action. WordPress
+	 * writes the update transient more than once per check, and each write
+	 * re-runs our filter.
+	 *
+	 * @var array
+	 */
+	private $runtime_cache = [];
+
+	/**
 	 * Initialize the class
 	 *
 	 * @param SE_License_SDK_Client $client The Client.
@@ -548,19 +557,73 @@ final class SE_License_SDK_Updater {
 	}
 
 	/**
-	 * Get version info from database
+	 * How long a successful update/information payload is cached.
+	 *
+	 * WordPress itself refreshes the `update_plugins` / `update_themes` site
+	 * transient twice a day, so a shorter TTL only adds license-server traffic
+	 * without surfacing a release any sooner. Until 1.5.9 this was 3 hours.
+	 *
+	 * @return int Seconds.
+	 */
+	private function get_cache_ttl(): int {
+		return (int) apply_filters( $this->client->getHookName( 'updater_cache_ttl' ), 12 * HOUR_IN_SECONDS );
+	}
+
+	/**
+	 * How long to stop asking the license server after a failed check.
+	 *
+	 * @return int Seconds.
+	 */
+	private function get_failure_ttl(): int {
+		return (int) apply_filters( $this->client->getHookName( 'updater_failure_ttl' ), HOUR_IN_SECONDS );
+	}
+
+	/**
+	 * Whether a cached value is the "last check failed" marker written by
+	 * get_information().
+	 *
+	 * @param mixed $info Cached value.
+	 *
+	 * @return bool
+	 */
+	private function is_failure_marker( $info ): bool {
+		return is_object( $info ) && ! empty( $info->se_sdk_check_failed );
+	}
+
+	/**
+	 * Whether WordPress is running an explicit, user-requested update check
+	 * (the "Check again" button on Dashboard → Updates).
+	 *
+	 * Visiting update-core.php used to bypass the cache on every page view, so
+	 * each visit sent one request per SDK product. WordPress only re-checks
+	 * wp.org there when `force-check` is present; we now do the same.
+	 *
+	 * @return bool
+	 */
+	private function is_forced_update_check(): bool {
+		global $pagenow;
+
+		return 'update-core.php' === $pagenow && ! empty( $_GET['force-check'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	}
+
+	/**
+	 * Get version info from database.
+	 *
+	 * Returns the cached payload, the failure marker when the last check failed
+	 * and its back-off hasn't elapsed, or false when there is nothing usable.
 	 *
 	 * @return object|bool
 	 */
 	private function get_cached_version_info( $which ) {
-		global $pagenow;
-
-		// If updater page then fetch from API now
-		if ( 'update-core.php' == $pagenow || $this->disable_cache ) {
+		if ( $this->disable_cache || $this->is_forced_update_check() ) {
 			return false; // Force fetching update
 		}
 
 		$info = get_transient( $this->cache_key . $which );
+
+		if ( $this->is_failure_marker( $info ) ) {
+			return $info;
+		}
 
 		// The two payload shapes carry different identifying fields: the
 		// `*_information` routes include `name` (they merge in package-info),
@@ -568,7 +631,7 @@ final class SE_License_SDK_Updater {
 		// for `name` alone therefore rejected every cached update payload, so
 		// set_cached_version_info() wrote a transient that was never once read
 		// back and every update check hit the license server.
-		if ( ! $info || ( ! isset( $info->name ) && ! isset( $info->new_version ) ) ) {
+		if ( ! is_object( $info ) || ( ! isset( $info->name ) && ! isset( $info->new_version ) ) ) {
 			return false; // Cache is expired.
 		}
 
@@ -578,18 +641,28 @@ final class SE_License_SDK_Updater {
 	/**
 	 * Set version info to database
 	 *
+	 * A failed check is cached too (as a marker, for get_failure_ttl()). Until
+	 * 1.5.9 a failure *deleted* the transient, so while the license server was
+	 * slow or down every admin request that touched update data retried it —
+	 * each one blocking the page on the request timeout, and together keeping
+	 * the server overloaded.
+	 *
 	 * @param mixed $value data (version info) to cache.
 	 *
 	 * @return void
 	 */
 	private function set_cached_version_info( $value, $which ) {
 		if ( ! $value ) {
-			delete_transient( $this->cache_key . $which );
+			set_transient(
+				$this->cache_key . $which,
+				(object) [ 'se_sdk_check_failed' => time() ],
+				max( MINUTE_IN_SECONDS, $this->get_failure_ttl() )
+			);
 
 			return;
 		}
 
-		set_transient( $this->cache_key . $which, $value, 3 * HOUR_IN_SECONDS );
+		set_transient( $this->cache_key . $which, $value, max( MINUTE_IN_SECONDS, $this->get_cache_ttl() ) );
 	}
 
 	/**
@@ -597,6 +670,8 @@ final class SE_License_SDK_Updater {
 	 * @return void
 	 */
 	public function delete_cached_version_info() {
+		$this->runtime_cache = [];
+
 		delete_transient( $this->cache_key );
 
 		if ( $this->client->isPlugin() ) {
@@ -609,30 +684,101 @@ final class SE_License_SDK_Updater {
 
 		foreach ( $actions as $which ) {
 			delete_transient( $this->cache_key . $which );
+			delete_transient( $this->cache_key . $which . '_lock' );
 		}
+
+		delete_transient( $this->client->getHookName( 'versions_list' ) );
 	}
 
 	/**
-	 * Get plugin info from WC API Manager
+	 * Get plugin info from the license server, cache first.
+	 *
+	 * Never sends more than one request per product per cache window: a hit
+	 * returns the cached payload, a recent failure returns false without
+	 * retrying, and a short lock stops concurrent admin requests from all
+	 * refetching the moment the cache expires.
 	 *
 	 * @param string $action
-	 * @param bool $force
+	 * @param bool $force Explicit user action ("Check for updates", WP-CLI): skip cache and lock.
 	 *
-	 * @return bool|array
+	 * @return bool|object
 	 */
 	private function get_information( string $action, bool $force = false ) {
-		$project_info = $this->get_cached_version_info( $action );
-
-		if ( false === $project_info || $force ) {
-			$project_info = $this->get_updates( $action );
-
-			$this->set_cached_version_info( $project_info, $action );
+		if ( ! $force && array_key_exists( $action, $this->runtime_cache ) ) {
+			return $this->runtime_cache[ $action ];
 		}
+
+		$project_info = $force ? false : $this->get_cached_version_info( $action );
+
+		if ( $this->is_failure_marker( $project_info ) ) {
+			return false;
+		}
+
+		if ( false !== $project_info ) {
+			return $project_info;
+		}
+
+		$lock = $this->cache_key . $action . '_lock';
+
+		if ( ! $force ) {
+			if ( get_transient( $lock ) ) {
+				// Another request is already refreshing this product.
+				return false;
+			}
+
+			set_transient( $lock, 1, MINUTE_IN_SECONDS );
+		}
+
+		$project_info = $this->get_updates( $action, $force );
+
+		$this->set_cached_version_info( $project_info, $action );
+
+		delete_transient( $lock );
+
+		$this->runtime_cache[ $action ] = $project_info;
 
 		return $project_info;
 	}
 
-	private function get_updates( $action ) {
+	/**
+	 * Read whatever update information is already stored locally — never
+	 * contacts the license server.
+	 *
+	 * For code that runs on ordinary admin page loads (localized JS params,
+	 * dashboards). Prefers the full `*_information` payload, then the
+	 * `*_update` envelope, then the row WordPress keeps in its own update
+	 * transient. The license gate is applied to whatever is returned.
+	 *
+	 * @return object|null
+	 */
+	public function get_cached_update_info() {
+		$type = $this->client->isPlugin() ? 'plugin' : 'theme';
+
+		foreach ( [ $type . '_information', $type . '_update' ] as $which ) {
+			$info = get_transient( $this->cache_key . $which );
+
+			if ( is_object( $info ) && ! $this->is_failure_marker( $info ) && isset( $info->new_version ) ) {
+				return $this->strip_unlicensed_package( $this->__children_to_array( $info, [ 'icons', 'banners', 'sections' ] ) );
+			}
+		}
+
+		if ( 'plugin' === $type ) {
+			$wp  = get_site_transient( 'update_plugins' );
+			$row = $wp->response[ $this->client->getBasename() ] ?? null;
+		} else {
+			$wp  = get_site_transient( 'update_themes' );
+			$row = $wp->response[ $this->client->getSlug() ] ?? null;
+			$row = is_array( $row ) ? (object) $row : $row;
+		}
+
+		if ( is_object( $row ) && isset( $row->new_version ) ) {
+			return $this->strip_unlicensed_package( $row );
+		}
+
+		return null;
+	}
+
+	private function get_updates( $action, bool $force = false ) {
 		// Updater doesn't need to care for license.
 		// License key will be added to the request body by client (if available).
 		// Server will provide update information without package/download link if license not available.
@@ -644,7 +790,12 @@ final class SE_License_SDK_Updater {
 		//$data['channel'] = 'beta';
 
 		// Update -> check-update,
-		$response = $this->client->request( [ 'body'  => $data, 'route' => 'check-update' ] );
+		// Background checks mirror wp_update_plugins(): a short timeout on a
+		// page load so a slow license server can't stall wp-admin, a longer one
+		// in cron or when the user explicitly asked.
+		$timeout = ( $force || wp_doing_cron() || ( defined( 'WP_CLI' ) && WP_CLI ) ) ? 15 : 5;
+
+		$response = $this->client->request( [ 'body'  => $data, 'route' => 'check-update', 'timeout' => $timeout ] );
 
 		if ( isset( $response['success'] ) && $response['success'] ) {
 			// Stamp the local "last checked" timestamp so the UI can render
@@ -665,8 +816,9 @@ final class SE_License_SDK_Updater {
 			if ( 'plugin_update' !== $action ) {
 				// information -> package-info
 				$response = $this->client->request( [
-					'body'  => $this->client->get_admin_info(),
-					'route' => 'package-info',
+					'body'    => $this->client->get_admin_info(),
+					'route'   => 'package-info',
+					'timeout' => $timeout,
 				] );
 
 				if ( isset( $response['success'] ) && $response['success'] ) {
