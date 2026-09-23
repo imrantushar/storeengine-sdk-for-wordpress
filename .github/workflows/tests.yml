@@ -1,0 +1,51 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [ master ]
+
+jobs:
+  version-guard:
+    name: Version bump guard
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: tests/check-version.sh "origin/${{ github.base_ref }}"
+
+  scenarios:
+    name: SDK scenarios (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: [ '7.4', '8.3' ]
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wp
+        ports: [ '3306:3306' ]
+        options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mysqli
+          tools: wp-cli
+          coverage: none
+      - name: Lint
+        run: find classes abstracts functions.php init.php tests -name '*.php' -print0 2>/dev/null | xargs -0 -n1 php -l > /dev/null
+      - name: Install WordPress
+        run: |
+          mkdir -p /tmp/wp && cd /tmp/wp
+          wp core download --quiet
+          wp config create --dbname=wp --dbuser=root --dbpass=root --dbhost=127.0.0.1 --skip-check
+          wp core install --url=http://example.test --title=SDK --admin_user=admin --admin_password=admin --admin_email=admin@example.test --skip-email
+      - name: Run scenarios
+        run: WP_PATH=/tmp/wp tests/run.sh
