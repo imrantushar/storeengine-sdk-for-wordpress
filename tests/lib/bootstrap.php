@@ -11,7 +11,7 @@
 // Fake license server.
 // ---------------------------------------------------------------------------
 
-/** 'ok' | 'down' | 'old' (no batch route) | 'slow-ok' */
+/** 'ok' | 'down' | 'old' (no batch route) | 'slow-ok' | 'challenge' (edge bot-challenge) */
 $GLOBALS['se_t_mode']       = 'ok';
 $GLOBALS['se_t_hits']       = [];
 $GLOBALS['se_t_directives'] = [];
@@ -39,6 +39,19 @@ add_filter( 'pre_http_request', function ( $pre, $args, $url ) {
 
 	if ( 'down' === $mode ) {
 		return $http( 503, [ 'message' => 'down' ] );
+	}
+
+	if ( 'challenge' === $mode ) {
+		// An edge/CDN (Cloudflare-style managed challenge) intercepts the request
+		// and returns an HTML interstitial with a cf-mitigated header — never the
+		// server's own JSON answer.
+		return [
+			'headers'  => [ 'cf-mitigated' => 'challenge', 'content-type' => 'text/html; charset=UTF-8' ],
+			'body'     => '<!DOCTYPE html><html><head><title>Just a moment...</title></head><body><script>window._cf_chl_opt={cRay:"test"};</script></body></html>',
+			'response' => [ 'code' => 403, 'message' => 'Forbidden' ],
+			'cookies'  => [],
+			'filename' => null,
+		];
 	}
 
 	$update = function ( string $slug ) {

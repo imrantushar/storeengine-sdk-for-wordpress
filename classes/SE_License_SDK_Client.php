@@ -1596,7 +1596,12 @@ final class SE_License_SDK_Client {
 		$key  = 'se_sdk_srv_' . self::server_key( $url );
 		$code = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
 
-		$failed = is_wp_error( $response ) || 0 === $code || $code >= 500 || in_array( $code, [ 408, 429 ], true );
+		// A `cf-mitigated` header means an edge (e.g. Cloudflare) challenged the
+		// request rather than the server answering — back off like any outage so
+		// we stop hammering the edge.
+		$challenged = ! is_wp_error( $response ) && '' !== wp_remote_retrieve_header( $response, 'cf-mitigated' );
+
+		$failed = is_wp_error( $response ) || 0 === $code || $code >= 500 || in_array( $code, [ 408, 429 ], true ) || $challenged;
 
 		if ( ! $failed ) {
 			if ( false !== get_site_transient( $key ) ) {
@@ -1659,9 +1664,25 @@ final class SE_License_SDK_Client {
 				];
 			}
 
-			$code = wp_remote_retrieve_response_code( $response );
-			$body = wp_remote_retrieve_body( $response );
-			$body = json_decode( $body, true );
+			$code     = wp_remote_retrieve_response_code( $response );
+			$raw_body = wp_remote_retrieve_body( $response );
+
+			// An edge/CDN in front of the license server (e.g. Cloudflare) can
+			// intercept the request and answer with an interactive bot-challenge
+			// page instead of forwarding it. The server never gave a verdict, so
+			// this must NOT be read as "license invalid" — flag it transport-level
+			// so the grace period holds the last-known-good state.
+			if ( $this->is_edge_challenge( $response, $raw_body ) ) {
+				return [
+					'success'         => false,
+					'error'           => __( 'The license server could not be reached: a security check (e.g. Cloudflare) intercepted the request. Please try again later.', 'storeengine-sdk' ),
+					'code'            => 'edge_challenge',
+					'data'            => [],
+					'transport_error' => true,
+				];
+			}
+
+			$body = json_decode( $raw_body, true );
 
 			if ( 201 === $code && ! $response ) {
 				return [
@@ -1699,6 +1720,50 @@ final class SE_License_SDK_Client {
 		}
 
 		return $response;
+	}
+
+	/**
+	 * Detect an edge/CDN bot-challenge served in place of the license server's
+	 * own response (most commonly Cloudflare's "Just a moment…" interstitial).
+	 *
+	 * The server-to-server request carries no browser, cookies or JS engine, so
+	 * an edge bot-manager may answer it with a challenge page. That is never a
+	 * license verdict and callers must treat it as a transport failure.
+	 *
+	 * @param array|WP_Error $response Raw WP HTTP response.
+	 * @param string         $body     Already-retrieved response body.
+	 *
+	 * @return bool
+	 */
+	private function is_edge_challenge( $response, string $body ): bool {
+		// Cloudflare sets this header whenever it challenges or blocks a request
+		// (e.g. "challenge", "managed_challenge", "jschallenge"). Its presence is
+		// authoritative; a request that passed through carries no such header.
+		$mitigated = wp_remote_retrieve_header( $response, 'cf-mitigated' );
+		if ( '' !== $mitigated ) {
+			return true;
+		}
+
+		if ( '' === $body ) {
+			return false;
+		}
+
+		// A genuine API response — success or business error — is JSON. Only
+		// consider a non-JSON (HTML) body a possible challenge, so a real JSON
+		// error is never masked.
+		$trimmed = ltrim( $body );
+		if ( '' !== $trimmed && ( '{' === $trimmed[0] || '[' === $trimmed[0] ) ) {
+			return false;
+		}
+
+		// Markers emitted by common edge challenge/interstitial pages.
+		foreach ( [ 'challenge-platform', '_cf_chl_opt', 'cf-browser-verification', 'Just a moment', 'Attention Required', 'Checking your browser' ] as $marker ) {
+			if ( false !== stripos( $body, $marker ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
