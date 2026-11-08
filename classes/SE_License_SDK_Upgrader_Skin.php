@@ -1,5 +1,9 @@
 <?php
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Non-interactive Upgrader skin used by SE_License_SDK_Install_Job.
  *

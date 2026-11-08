@@ -23,6 +23,10 @@
 
 declare( strict_types=1 );
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 // IMPORTANT — loading order with multiple bundled copies:
 // The "newest version wins" election below only counts copies whose init.php
 // actually runs. Composer's autoload_files de-dupes this file by a
