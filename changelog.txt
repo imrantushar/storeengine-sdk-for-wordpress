@@ -1,5 +1,8 @@
 *** Changelog ***
 
+= Unreleased =
+* Fixed - Every SDK PHP file now blocks direct access (`ABSPATH` guard), as Plugin Check requires. `init.php` and the version manager keep `declare( strict_types=1 )` as their first statement.
+
 = 1.6.3 - 05-11-2026 =
 * Fixed - CSS and JS for the license notice, license page, opt-in notice and promotions are now added with wp_add_inline_style() and wp_add_inline_script() instead of raw <style>/<script> tags, as WordPress.org review requires.
 

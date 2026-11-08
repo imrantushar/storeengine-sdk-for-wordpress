@@ -5,6 +5,10 @@
 
 declare( strict_types=1 );
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 final class SE_License_SDK_Version_Manager {
 	/**
 	 * SE_License_SDK_Version_Manager instance.
