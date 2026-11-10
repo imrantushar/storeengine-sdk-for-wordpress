@@ -159,19 +159,19 @@ final class SE_License_SDK_License {
 		return admin_url( 'admin.php?page=' . $this->menu_args['menu_slug'] );
 	}
 
-	public function set_header_message( string $message = null ): SE_License_SDK_License {
+	public function set_header_message( ?string $message = null ): SE_License_SDK_License {
 		$this->header_message = $message;
 
 		return $this;
 	}
 
-	public function set_header_content( string $message = null ): SE_License_SDK_License {
+	public function set_header_content( ?string $message = null ): SE_License_SDK_License {
 		$this->header_content = $message;
 
 		return $this;
 	}
 
-	public function set_manage_license_url( string $url = null ): SE_License_SDK_License {
+	public function set_manage_license_url( ?string $url = null ): SE_License_SDK_License {
 		$this->manage_license_url = $url;
 
 		return $this;

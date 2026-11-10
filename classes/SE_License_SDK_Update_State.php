@@ -101,7 +101,7 @@ final class SE_License_SDK_Update_State {
 		$this->set( $changes );
 	}
 
-	public function record_check( int $time = null ): void {
+	public function record_check( ?int $time = null ): void {
 		$this->set( [ 'last_checked_at' => $time ?: time() ] );
 	}
 }

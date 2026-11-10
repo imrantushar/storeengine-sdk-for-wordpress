@@ -1000,7 +1000,7 @@ final class SE_License_SDK_Updater {
 	 *
 	 * @return object $data
 	 */
-	public function plugins_api_filter( $data, string $action = '', object $args = null ) {
+	public function plugins_api_filter( $data, string $action = '', ?object $args = null ) {
 		if ( 'plugin_information' !== $action ) {
 			return $data;
 		}
