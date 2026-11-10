@@ -400,7 +400,7 @@ final class SE_License_SDK_Client {
 	 */
 	private static $instances = [];
 
-	public static function get_instance( string $package_file = '', string $package_name = '', string $sdk_version = null, array $args = [] ): SE_License_SDK_Client {
+	public static function get_instance( string $package_file = '', string $package_name = '', ?string $sdk_version = null, array $args = [] ): SE_License_SDK_Client {
 		$self = new self( $package_file, $package_name, $args );
 		$self->set_sdk_version( $sdk_version );
 
@@ -2075,7 +2075,7 @@ final class SE_License_SDK_Client {
 		return add_filter( $this->getHookName( $hook_name ), $callback, $priority, $accepted_args );
 	}
 
-	public function set_purchase_url( string $purchase_url = null ) {
+	public function set_purchase_url( ?string $purchase_url = null ) {
 		$this->purchase_url = $purchase_url;
 	}
 
