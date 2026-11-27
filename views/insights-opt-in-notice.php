@@ -154,6 +154,9 @@ if ( ! defined( 'ABSPATH' ) ) {
             padding: 6px 12px;
             color: #FFFFFF;
             background: var( --se-sdk-primary-color );
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             text-align: center;
             font-size: 14px;
             font-style: normal;
@@ -170,6 +173,9 @@ if ( ! defined( 'ABSPATH' ) ) {
             border: 1px solid #DEDEDE;
             border-radius: 4px;
             padding: 6px 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             text-align: center;
             font-size: 14px;
             font-style: normal;
